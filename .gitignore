@@ -1,0 +1,68 @@
+# Environment variables and API tokens
+.env
+.env.backup
+.env.local
+.env.*.local
+.cursorrules
+.cursor/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# UV
+uv.lock
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+venv_test/
+ENV/
+env/
+
+# IDE files
+.idea/
+.vscode/*
+.vscode/mcp.json.example
+*.swp
+*.swo
+.DS_Store
+
+# Test files
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Logs
+*.log
+logs/
+
+# Development files
+plan.md
+IMPLEMENTATION_STATUS.md
+todo.md
+integration_tests/
+.python-version
+CLAUDE.md
+.claude/
+.qoder/

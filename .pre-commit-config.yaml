@@ -1,0 +1,77 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  # Local hooks that use uv
+  - repo: local
+    hooks:
+      # Ruff linter and formatter via uv
+      - id: ruff-lint
+        name: ruff (lint)
+        entry: uv run ruff check
+        language: system
+        types: [python]
+        args: [--fix]
+        require_serial: true
+        
+      - id: ruff-format
+        name: ruff (format)
+        entry: uv run ruff format
+        language: system
+        types: [python]
+        require_serial: true
+
+      # MyPy via uv
+      - id: mypy
+        name: mypy (type check)
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+        args: [youtrack_mcp]
+        require_serial: true
+
+  # General hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+      - id: end-of-file-fixer
+        name: Fix end of files
+      - id: check-yaml
+        name: Check YAML syntax
+      - id: check-added-large-files
+        args: [--maxkb=500]
+        name: Check for large files (>500KB)
+      - id: check-merge-conflict
+        name: Check for merge conflicts
+      - id: check-toml
+        name: Check TOML syntax
+      - id: debug-statements
+        name: Check for debugger imports
+      - id: mixed-line-ending
+        args: [--fix=lf]
+        name: Fix mixed line endings
+
+  # Check for secrets
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: [--baseline, .secrets.baseline]
+        exclude: ^(tests/|\.secrets\.baseline)$
+        name: Detect secrets
+
+# Configuration
+default_language_version:
+  python: python3.12
+
+# Run on all files by default
+files: ''
+exclude: '^(\.git|\.venv|venv|build|dist|\.egg|\.pytest_cache|__pycache__|htmlcov|\.coverage|\.mypy_cache|\.ruff_cache)/'
+
+# Fail fast on first error
+fail_fast: false
+
+# Default stages
+default_stages: [pre-commit]
