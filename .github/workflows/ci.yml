@@ -28,8 +28,11 @@ jobs:
     - name: Install dependencies
       run: uv sync
 
-    - name: Run Ruff
+    - name: Run Ruff Linter
       run: uv run ruff check src/
+
+    - name: Run Ruff Formatter (check only)
+      run: uv run ruff format --check src/
 
     - name: Run MyPy
       run: uv run mypy src/youtrack_rocket_mcp --ignore-missing-imports

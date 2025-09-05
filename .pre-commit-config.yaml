@@ -10,7 +10,8 @@ repos:
         entry: uv run ruff check
         language: system
         types: [python]
-        args: [--fix]
+        args: [--fix, src/]
+        pass_filenames: false
         require_serial: true
 
       - id: ruff-format
@@ -18,6 +19,8 @@ repos:
         entry: uv run ruff format
         language: system
         types: [python]
+        args: [src/]
+        pass_filenames: false
         require_serial: true
 
       # MyPy via uv
