@@ -9,26 +9,36 @@ Model Context Protocol (MCP) is an open standard that enables AI models to inter
 ## Features
 
 - **Issue Management**
-  - Get issue details
-  - Search for issues using YouTrack query language
-  - Create new issues
-  - Add comments to issues
+  - `get_issue` - Get complete issue details
+  - `get_issue_raw` - Get raw API response for an issue
+  - `search_issues` - Quick search (returns only ID and summary, limit 100)
+  - `search_issues_detailed` - Full search with custom fields filtering (limit 30)
+  - `create_issue` - Create new bug reports, features, or tasks
+  - `add_comment` - Add comments to issues with markdown support
+  - `execute_command` - Batch update issues (assign, change state, priority, etc.)
 
 - **Project Management**
-  - Get project list and details
-  - Create and update projects
-  - Access project issues
-  - Manage custom fields
+  - `get_projects` - List all available projects
+  - `get_project` - Get project configuration and custom fields
+  - `get_project_by_name` - Find project by display name
+  - `get_project_issues` - List issues in a project
+  - `get_field_values` - Get valid values for a field (states, priorities, etc.)
+  - `get_custom_fields` - List project's custom fields
 
 - **User Management**
-  - Get current user information
-  - Search for users
-  - Access user details and groups
+  - `get_current_user` - Get current API user
+  - `get_user` - Fetch user details by ID
+  - `get_user_by_login` - Find user by login name
+  - `search_users` - Search users by name or login
 
-- **Search Functionality**
-  - Advanced search with custom fields
-  - Structured filtering
-  - Sorting options
+- **Advanced Search**
+  - `advanced_search` - Search with sorting capabilities
+  - `filter_issues` - Structured filtering by multiple criteria
+  - `search_with_custom_fields` - Search by custom field values
+
+- **Search Help**
+  - `get_search_syntax_guide` - Complete YouTrack query syntax reference
+  - `get_common_queries` - Common query examples and templates
 
 ## Documentation
 

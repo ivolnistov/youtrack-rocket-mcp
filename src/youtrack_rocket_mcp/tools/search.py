@@ -27,7 +27,7 @@ class SearchTools:
         self.issues_api = IssuesClient(self.client)
 
     async def advanced_search(
-        self, query: str, limit: int = 10, sort_by: str | None = None, sort_order: str | None = None
+        self, query: str, limit: int = 30, sort_by: str | None = None, sort_order: str | None = None
     ) -> str:
         """
         Advanced search for issues using YouTrack query language with sorting.
@@ -64,14 +64,32 @@ class SearchTools:
                 sort_param = f'{sort_by} {order}'
                 logger.info(f'Sorting by: {sort_param}')
 
-            # Request with explicit fields to get complete data
-            fields = 'id,summary,description,created,updated,project(id,name,shortName),reporter(id,login,name),assignee(id,login,name),customFields(id,name,value(id,name,login,text,localizedName))'
+            # Request with explicit fields to get complete data (removed redundant project field)
+            fields = 'id,idReadable,summary,description,created,updated,reporter(id,login,name),assignee(id,login,name),customFields(id,name,value(id,name,login,text,localizedName))'
             params = {'query': query, '$top': limit, 'fields': fields}
 
             if sort_param:
                 params['$sort'] = sort_param
 
             raw_issues = await self.client.get('issues', params=params)
+
+            # Get total count of matching issues
+            count_params = {'query': query, '$top': 1, 'fields': 'id'}
+            count_response = await self.client.get('issues', params=count_params)
+            
+            # Calculate total from response headers or estimate from current results
+            total_count = len(raw_issues)
+            if '$skip' in params:
+                # If we have pagination info, try to get from headers
+                total_count = len(raw_issues)  # Default to current count
+            else:
+                # Make a count request with a high limit to get actual total
+                count_params_full = {'query': query, '$top': 1000, 'fields': 'id'}
+                try:
+                    count_full = await self.client.get('issues', params=count_params_full)
+                    total_count = len(count_full)
+                except:
+                    total_count = len(raw_issues)  # Fallback to current count
 
             # Format custom fields for each issue
             for issue in raw_issues:
@@ -80,8 +98,19 @@ class SearchTools:
                     # Remove original customFields - keep only formatted version
                     del issue['customFields']
 
+            # Create result with metadata
+            result = {
+                'total': total_count,
+                'shown': len(raw_issues),
+                'limit': limit,
+                'issues': raw_issues
+            }
+            
+            if total_count > len(raw_issues):
+                result['message'] = f'Showing {len(raw_issues)} of {total_count} total issues. Increase limit to see more.'
+
             # Return the formatted issues data
-            return json.dumps(raw_issues, indent=2)
+            return json.dumps(result, indent=2)
 
         except Exception as e:
             logger.exception(f'Error performing advanced search with query: {query}')
@@ -99,7 +128,7 @@ class SearchTools:
         created_before: str | None = None,
         updated_after: str | None = None,
         updated_before: str | None = None,
-        limit: int = 10,
+        limit: int = 30,
     ) -> str:
         """
         Search for issues using a structured filter approach.
@@ -207,7 +236,7 @@ class SearchTools:
             logger.exception('Error filtering issues')
             return json.dumps({'error': str(e)})
 
-    async def search_with_custom_fields(self, query: str, custom_fields: str | CustomFieldData, limit: int = 10) -> str:
+    async def search_with_custom_fields(self, query: str, custom_fields: str | CustomFieldData, limit: int = 30) -> str:
         """
         Search for issues with specific custom field values.
 
@@ -273,7 +302,7 @@ class SearchTools:
                 'description': "Perform advanced issue search using YouTrack's full query language with sorting capabilities. This is the most powerful search method supporting all YouTrack query features.",
                 'parameters': {
                     'query': 'Search query using YouTrack query language syntax',
-                    'limit': 'Maximum number of issues to return (optional, default: 10, max: 1000)',
+                    'limit': 'Maximum number of issues to return (optional, default: 30, max: 1000)',
                     'sort_by': "Field to sort results by (optional, e.g., 'created', 'updated', 'priority', 'votes')",
                     'sort_order': "Sort direction: 'asc' for ascending or 'desc' for descending (optional, default: 'desc')",
                 },
@@ -306,7 +335,7 @@ class SearchTools:
                     'created_before': 'Filter issues created before this date in YYYY-MM-DD format (optional)',
                     'updated_after': 'Filter issues updated after this date in YYYY-MM-DD format (optional)',
                     'updated_before': 'Filter issues updated before this date in YYYY-MM-DD format (optional)',
-                    'limit': 'Maximum number of issues to return (optional, default: 10)',
+                    'limit': 'Maximum number of issues to return (optional, default: 30)',
                 },
                 'examples': [
                     "filter_issues(project='ITSFT', state='Open', assignee='me') - My open issues in ITSFT",
@@ -322,7 +351,7 @@ class SearchTools:
                 'parameters': {
                     'query': "Base search query to combine with custom field filters (e.g., 'project: ITSFT')",
                     'custom_fields': 'Dictionary mapping custom field names to their values, or a JSON string',
-                    'limit': 'Maximum number of issues to return (optional, default: 10)',
+                    'limit': 'Maximum number of issues to return (optional, default: 30)',
                 },
                 'examples': [
                     "search_with_custom_fields(query='project: ITSFT', custom_fields={'Type': 'Bug', 'Severity': 'Critical'})",
@@ -358,7 +387,7 @@ def register_search_tools(mcp: FastMCP) -> None:
         """
             ),
         ],
-        limit: Annotated[int, Field(description='Max results')] = 10,
+        limit: Annotated[int, Field(description='Max results (default: 30)')] = 30,
         sort_by: Annotated[
             str | None, Field(description='Sort by: created, updated, priority, votes, comments')
         ] = None,
@@ -381,7 +410,7 @@ def register_search_tools(mcp: FastMCP) -> None:
         created_before: Annotated[str | None, Field(description='Date YYYY-MM-DD')] = None,
         updated_after: Annotated[str | None, Field(description='Date YYYY-MM-DD')] = None,
         updated_before: Annotated[str | None, Field(description='Date YYYY-MM-DD')] = None,
-        limit: Annotated[int, Field(description='Max results')] = 10,
+        limit: Annotated[int, Field(description='Max results (default: 30)')] = 30,
     ) -> str:
         """Filter issues by multiple criteria. Use when you need precise AND filtering. All parameters optional."""
         return await search_tools.filter_issues(
@@ -410,7 +439,7 @@ def register_search_tools(mcp: FastMCP) -> None:
             """
             ),
         ],
-        limit: Annotated[int, Field(description='Max results')] = 10,
+        limit: Annotated[int, Field(description='Max results (default: 30)')] = 30,
     ) -> str:
         """Search by custom fields. Use to find bugs in specific sprint or critical severity issues. Combines with base query."""
         # Handle custom_fields as string, list or dict

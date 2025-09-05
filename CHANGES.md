@@ -1,5 +1,42 @@
 # YouTrack MCP Server - Changes
 
+## Date: 2025-01-06
+
+### New Features:
+
+1. **GitHub Release packages and Container Registry support**
+   - Added GitHub Packages (ghcr.io) deployment alongside Docker Hub
+   - Docker images now available at both:
+     - `docker.io/ivolnistov/youtrack-rocket-mcp`
+     - `ghcr.io/i-volnistov/youtrack-rocket-mcp`
+   - GitHub Releases now include built packages (.whl and .tar.gz files) as attachments
+   - Added separate build-packages job to create release artifacts
+   - File: `.github/workflows/release.yml`
+
+2. **Efficient issue counting with `issuesGetter/count` endpoint**
+   - Replaced inefficient fetching of 1000 issues with dedicated count API endpoint
+   - Added retry logic for when YouTrack returns -1 (still calculating)
+   - Significantly improves performance for large result sets
+   - Both `search_issues` and `search_issues_detailed` now use the count endpoint
+   - Files: `src/youtrack_rocket_mcp/tools/issues.py`
+
+3. **Split search functionality into simple and detailed versions**
+   - `search_issues`: Returns only ID and summary (default limit: 100)
+   - `search_issues_detailed`: Returns full information with custom fields (default limit: 30)
+   - Added `custom_fields_filter` parameter to selectively include fields
+   - Files: `src/youtrack_rocket_mcp/tools/issues.py`
+
+### Improvements:
+
+1. **Search results metadata**
+   - All search functions now return total count, shown count, and limit
+   - Display informative message when not all results are shown
+   - Removed redundant project field from search results
+
+2. **Fixed async close() method**
+   - Changed `def close()` to `async def close()` to fix RuntimeWarning
+   - File: `src/youtrack_rocket_mcp/tools/issues.py`
+
 ## Date: 2025-01-05
 
 ### Fixes and Improvements:

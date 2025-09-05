@@ -2,6 +2,7 @@
 YouTrack Issue MCP tools.
 """
 
+import asyncio
 import json
 import logging
 from typing import Annotated, Any
@@ -65,41 +66,143 @@ class IssueTools:
             logger.exception(f'Error getting issue {issue_id}')
             return json.dumps({'error': str(e)})
 
-    async def search_issues(self, query: str, limit: int = 10) -> str:
+    async def search_issues(self, query: str, limit: int = 100) -> str:
         """
-        Search for issues using YouTrack query language.
+        Search for issues using YouTrack query language (simplified version).
+        Returns only idReadable and summary for quick overview.
 
-        FORMAT: search_issues(query="project: DEMO #Unresolved", limit=10)
+        FORMAT: search_issues(query="project: DEMO #Unresolved", limit=100)
 
         Args:
             query: The search query
             limit: Maximum number of issues to return
 
         Returns:
-            JSON string with matching issues
+            JSON string with issue IDs and summaries
         """
         try:
-            # Request with explicit fields to get complete data
+            # Request only minimal fields for quick overview
+            fields = 'idReadable,summary'
+            params = {'query': query, '$top': limit, 'fields': fields}
+            raw_issues = await self.client.get('issues', params=params)
+
+            # Get total count of matching issues using the count endpoint
+            total_count = len(raw_issues)
+            if len(raw_issues) == limit:
+                # There might be more, use the issuesGetter/count endpoint
+                try:
+                    count_response = await self.client.post('issuesGetter/count?fields=count', data={'query': query})
+                    if isinstance(count_response, dict) and 'count' in count_response:
+                        count_value = count_response['count']
+                        # If count is -1, YouTrack is still counting, retry once
+                        if count_value == -1:
+                            await asyncio.sleep(0.5)
+                            count_response = await self.client.post(
+                                'issuesGetter/count?fields=count', data={'query': query}
+                            )
+                            count_value = count_response.get('count', -1)
+
+                        if count_value >= 0:
+                            total_count = count_value
+                except Exception:
+                    # Fallback to current count if request fails
+                    total_count = len(raw_issues)
+
+            # Create result with metadata
+            result = {'total': total_count, 'shown': len(raw_issues), 'limit': limit, 'issues': raw_issues}
+
+            if total_count > len(raw_issues):
+                result['message'] = (
+                    f'Showing {len(raw_issues)} of {total_count} total issues. Increase limit to see more.'
+                )
+
+            # Return the formatted issues data
+            return json.dumps(result, indent=2)
+
+        except Exception as e:
+            logger.exception(f'Error searching issues with query: {query}')
+            return json.dumps({'error': str(e)})
+
+    async def search_issues_detailed(
+        self, query: str, limit: int = 30, custom_fields_filter: list[str] | None = None
+    ) -> str:
+        """
+        Search for issues using YouTrack query language (detailed version).
+        Returns full issue information including custom fields.
+
+        FORMAT: search_issues_detailed(query="project: DEMO #Unresolved", limit=30, custom_fields_filter=["Priority", "State"])
+
+        Args:
+            query: The search query
+            limit: Maximum number of issues to return
+            custom_fields_filter: Optional list of custom field names to include. If None, all fields are included.
+
+        Returns:
+            JSON string with detailed issue information
+        """
+        try:
+            # Request with explicit fields to get complete data (removed redundant project field)
             fields = (
                 'id,idReadable,summary,description,created,updated,'
-                'project(id,name,shortName),reporter(id,login,name),'
+                'reporter(id,login,name),'
                 'assignee(id,login,name),customFields(id,name,value(id,name,login,text,localizedName))'
             )
             params = {'query': query, '$top': limit, 'fields': fields}
             raw_issues = await self.client.get('issues', params=params)
 
+            # Get total count of matching issues using the count endpoint
+            total_count = len(raw_issues)
+            if len(raw_issues) == limit:
+                # There might be more, use the issuesGetter/count endpoint
+                try:
+                    count_response = await self.client.post('issuesGetter/count?fields=count', data={'query': query})
+                    if isinstance(count_response, dict) and 'count' in count_response:
+                        count_value = count_response['count']
+                        # If count is -1, YouTrack is still counting, retry once
+                        if count_value == -1:
+                            await asyncio.sleep(0.5)
+                            count_response = await self.client.post(
+                                'issuesGetter/count?fields=count', data={'query': query}
+                            )
+                            count_value = count_response.get('count', -1)
+
+                        if count_value >= 0:
+                            total_count = count_value
+                except Exception:
+                    # Fallback to current count if request fails
+                    total_count = len(raw_issues)
+
             # Format custom fields for each issue
             for issue in raw_issues:
                 if isinstance(issue, dict) and 'customFields' in issue:
-                    issue['custom_fields'] = SearchClient.format_custom_fields(issue['customFields'])
+                    formatted_fields = SearchClient.format_custom_fields(issue['customFields'])
+
+                    # Filter custom fields if filter is provided
+                    if custom_fields_filter:
+                        filtered_fields = {}
+                        for field_name in custom_fields_filter:
+                            if field_name in formatted_fields:
+                                filtered_fields[field_name] = formatted_fields[field_name]
+                        issue['custom_fields'] = filtered_fields
+                    else:
+                        issue['custom_fields'] = formatted_fields
+
                     # Remove original customFields - keep only formatted version
                     del issue['customFields']
 
-            # Return the raw issues data directly
-            return json.dumps(raw_issues, indent=2)
+            # Create result with metadata
+            result = {'total': total_count, 'shown': len(raw_issues), 'limit': limit, 'issues': raw_issues}
+
+            if total_count > len(raw_issues):
+                result['message'] = (
+                    f'Showing {len(raw_issues)} of {total_count} total issues. Increase limit to see more.'
+                )
+
+            # Return the formatted issues data
+            return json.dumps(result, indent=2)
 
         except Exception as e:
-            logger.exception(f'Error searching issues with query: {query}')
+            logger.exception(f'Error searching issues with detailed query: {query}')
             return json.dumps({'error': str(e)})
 
     def _extract_parameters_from_dict(
@@ -365,9 +468,9 @@ class IssueTools:
             logger.exception(f'Error executing command "{command}" on issues')
             return json.dumps({'error': str(e), 'command': command, 'issues': issues})
 
-    def close(self) -> None:
+    async def close(self) -> None:
         """Close the API client."""
-        self.client.close()
+        await self.client.close()
 
     async def get_issue_raw(self, issue_id: str) -> str:
         """
@@ -462,10 +565,44 @@ def register_issue_tools(mcp: FastMCP) -> None:
         """
             ),
         ],
-        limit: Annotated[int, Field(description='Max results (default: 10)')] = 10,
+        limit: Annotated[int, Field(description='Max results (default: 100)')] = 100,
     ) -> str:
-        """Find issues using YouTrack query syntax. Supports all search operators and filters. Returns matching issues list."""
+        """Find issues using YouTrack query syntax. Returns only ID and summary for quick overview. Use search_issues_detailed for full information."""
         return await issue_tools.search_issues(query, limit)
+
+    @mcp.tool()
+    async def search_issues_detailed(
+        query: Annotated[
+            str,
+            Field(
+                description="""
+        YouTrack query. Examples:
+        • 'project: ITSFT' • 'assignee: me' • '#Unresolved'
+        • 'created: today' • 'updated: {this week}' • 'due: 2024-01-01 .. 2024-12-31'
+        • 'Type: Bug Priority: Critical' • 'has: comments' • 'tag: important'
+        • '"exact phrase"' • 'summary: bug*' • state: Open OR state: {In Progress}
+        """
+            ),
+        ],
+        limit: Annotated[int, Field(description='Max results (default: 30)')] = 30,
+        custom_fields_filter: Annotated[
+            list[str] | str | None,
+            Field(
+                description='Optional list of custom field names to include (e.g., ["Priority", "State", "Type"]). If not specified, all fields are included.'
+            ),
+        ] = None,
+    ) -> str:
+        """Find issues with full details including custom fields, assignee, reporter, dates. Use for comprehensive issue information."""
+        # Handle custom_fields_filter as either list or JSON string
+        parsed_filter: list[str] | None = None
+        if isinstance(custom_fields_filter, str):
+            try:
+                parsed_filter = json.loads(custom_fields_filter)
+            except json.JSONDecodeError:
+                return f'Error: custom_fields_filter must be a valid JSON array, got: {custom_fields_filter}'
+        elif custom_fields_filter is not None:
+            parsed_filter = custom_fields_filter
+        return await issue_tools.search_issues_detailed(query, limit, parsed_filter)
 
     @mcp.tool()
     async def execute_command(
