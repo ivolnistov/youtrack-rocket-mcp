@@ -13,7 +13,7 @@ This repository uses GitHub Actions for CI/CD with PyPI Trusted Publisher (OIDC)
   - Build and check distribution
 
 ### 2. Deploy to PyPI (`deploy.yml`)
-- **Trigger**: Git tags matching `v*` (e.g., v0.4.1)
+- **Trigger**: Git tags matching `v*` (e.g., vX.Y.Z)
 - **Purpose**: Deploy releases to PyPI
 - **Uses**: OIDC Trusted Publisher (no API token needed!)
 - **Environment**: `pypi` (configured in PyPI settings)
@@ -61,14 +61,14 @@ Already configured on PyPI.org:
 ```bash
 # Update version in src/youtrack_rocket_mcp/version.py
 git add .
-git commit -m "Release v0.4.1"
-git tag v0.4.1
+git commit -m "Release vX.Y.Z"
+git tag vX.Y.Z
 git push origin main --tags
 ```
 
 ### Option 2: Using GitHub Release UI
 1. Go to Releases → Create new release
-2. Choose a tag (e.g., v0.4.1)
+2. Choose a tag (e.g., vX.Y.Z)
 3. Fill in release notes
 4. Click "Publish release"
 

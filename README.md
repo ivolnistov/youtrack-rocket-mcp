@@ -1,4 +1,4 @@
-# YouTrack Rocket MCP 🚀 v0.4.0
+# YouTrack Rocket MCP 🚀
 
 A lightning-fast Model Context Protocol (MCP) server implementation for JetBrains YouTrack, built with FastMCP for optimal performance and proper parameter schema generation. Enables AI assistants to interact with YouTrack issue tracking system with full type safety.
 
@@ -93,7 +93,7 @@ export YOUTRACK_API_TOKEN="perm:your-api-token"
 uvx youtrack-rocket-mcp
 
 # Or with specific version
-uvx youtrack-rocket-mcp@0.4.1
+uvx youtrack-rocket-mcp@latest
 
 # Install persistently with uv tool
 uv tool install youtrack-rocket-mcp
@@ -187,7 +187,6 @@ To build and push multi-architecture images (for both ARM64 and AMD64 platforms)
 2. Build and push for multiple platforms:
    ```bash
    docker buildx build --platform linux/amd64,linux/arm64 \
-     -t youtrack-rocket-mcp:0.3.8 \
      -t youtrack-rocket-mcp:latest \
      --push .
    ```

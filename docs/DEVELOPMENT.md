@@ -167,9 +167,9 @@ uv build
 
 # This creates wheel and source distributions in dist/
 ls dist/
-# youtrack_rocket_mcp-0.4.1.tar.gz
-# youtrack_rocket_mcp-0.4.1-py3-none-any.whl
+# youtrack_rocket_mcp-X.Y.Z.tar.gz
+# youtrack_rocket_mcp-X.Y.Z-py3-none-any.whl
 
 # The package is published automatically via GitHub Actions
-# when a version tag is pushed (e.g., v0.4.1)
+# when a version tag is pushed (e.g., vX.Y.Z)
 ```
