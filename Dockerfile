@@ -22,5 +22,4 @@ ENV YOUTRACK_VERIFY_SSL="true"
 ENV YOUTRACK_CLOUD="false"
 
 # Run the MCP server in stdio mode for Claude integration by default
-ENTRYPOINT ["python", "-m", "youtrack_mcp.server"]
-CMD ["--transport", "stdio"]
+ENTRYPOINT ["python", "-m", "youtrack_rocket_mcp.server"]

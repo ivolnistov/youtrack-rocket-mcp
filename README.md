@@ -46,14 +46,14 @@ docker run -i --rm \
      -e YOUTRACK_URL=https://your-instance.youtrack.cloud \
      -e YOUTRACK_API_TOKEN=perm:your-api-token \
      -e YOUTRACK_CLOUD=true \
-     youtrack-rocket-mcp:latest
+     ivolnistov/youtrack-rocket-mcp:latest
 
 # Or for self-hosted YouTrack instances
 docker run -i --rm \
      -e YOUTRACK_URL=https://your-instance.youtrack.cloud \
      -e YOUTRACK_API_TOKEN=your-api-token \
      -e YOUTRACK_CLOUD=false \
-     youtrack-rocket-mcp:latest
+     ivolnistov/youtrack-rocket-mcp:latest
 ```
 
 For Cursor IDE, add to `.cursor/mcp.json`:
@@ -68,7 +68,7 @@ For Cursor IDE, add to `.cursor/mcp.json`:
             "-e", "YOUTRACK_URL=https://your-instance.youtrack.cloud",
             "-e", "YOUTRACK_API_TOKEN=perm:your-api-token",
             "-e", "YOUTRACK_CLOUD=true",
-            "youtrack-rocket-mcp:latest"
+            "ivolnistov/youtrack-rocket-mcp:latest"
             ]
         }
     }
@@ -77,7 +77,7 @@ For Cursor IDE, add to `.cursor/mcp.json`:
 
 For Claude Desktop, set as MCP server:
 ```
-docker run -i --rm -e YOUTRACK_API_TOKEN=perm:your-api-token -e YOUTRACK_CLOUD=true youtrack-rocket-mcp:latest
+docker run -i --rm -e YOUTRACK_API_TOKEN=perm:your-api-token -e YOUTRACK_CLOUD=true ivolnistov/youtrack-rocket-mcp:latest
 ```
 
 ## Installation & Usage
@@ -141,15 +141,15 @@ This will open a browser with MCP Inspector where you can test all tools with pr
 
 1. Pull the Docker image:
    ```bash
-   docker pull youtrack-rocket-mcp:latest
+   docker pull ivolnistov/youtrack-rocket-mcp:latest
    ```
 
 2. Run the container with your YouTrack credentials:
    ```bash
    docker run -i --rm \
      -e YOUTRACK_URL=https://your-instance.youtrack.cloud \
-     -e YOUTRACK_API_TOKEN=your-api-token \
-     youtrack-rocket-mcp:latest
+     -e YOUTRACK_API_TOKEN=perm:your-api-token \
+     ivolnistov/youtrack-rocket-mcp:latest
    ```
 
 ### Alternative: Build from Source
@@ -187,7 +187,7 @@ To build and push multi-architecture images (for both ARM64 and AMD64 platforms)
 2. Build and push for multiple platforms:
    ```bash
    docker buildx build --platform linux/amd64,linux/arm64 \
-     -t youtrack-rocket-mcp:latest \
+     -t ivolnistov/youtrack-rocket-mcp:latest \
      --push .
    ```
 
@@ -240,7 +240,7 @@ Create a `.cursor/mcp.json` file in your project:
             "-e", "YOUTRACK_API_TOKEN=perm:your-api-token",
             "-e", "YOUTRACK_URL=https://your-instance.youtrack.cloud",
             "-e", "YOUTRACK_CLOUD=true",
-            "youtrack-rocket-mcp:latest"
+            "ivolnistov/youtrack-rocket-mcp:latest"
             ]
         }
     }
@@ -292,7 +292,7 @@ To use with Claude Desktop:
             "-e", "YOUTRACK_API_TOKEN=perm:your-api-token",
             "-e", "YOUTRACK_URL=https://your-instance.youtrack.cloud",
             "-e", "YOUTRACK_CLOUD=true",
-            "youtrack-rocket-mcp:latest"
+            "ivolnistov/youtrack-rocket-mcp:latest"
             ]
         }
     }
@@ -657,7 +657,7 @@ docker run -i --rm \
   -e YOUTRACK_URL=https://youtrack.internal.company.com \
   -e YOUTRACK_API_TOKEN=perm:your-permanent-token \
   -e YOUTRACK_VERIFY_SSL=false \
-  youtrack-rocket-mcp:latest
+  ivolnistov/youtrack-rocket-mcp:latest
 ```
 
 This option is only recommended for development or in controlled environments where you cannot add the certificate to the trust store.
@@ -671,5 +671,5 @@ docker run -i --rm \
   -e YOUTRACK_URL=https://your-instance.youtrack.cloud \
   -e YOUTRACK_API_TOKEN=perm:your-permanent-token \
   -e MCP_DEBUG=true \
-  youtrack-rocket-mcp:latest
+  ivolnistov/youtrack-rocket-mcp:latest
 ```
