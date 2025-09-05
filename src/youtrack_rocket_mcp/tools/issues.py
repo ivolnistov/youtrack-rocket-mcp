@@ -446,7 +446,7 @@ class IssueTools:
             # Execute the command via API
             # The API returns 200 OK with empty body on success (unless fields param is specified)
             # We still capture it to ensure the request completed successfully
-            await self.client.post('commands', json_data=payload)
+            await self.client.post('commands', data=payload)
 
             # If we get here without exception, command was successful
             logger.info(f'Successfully executed command "{command}"')
