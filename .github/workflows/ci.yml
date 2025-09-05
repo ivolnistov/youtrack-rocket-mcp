@@ -11,24 +11,26 @@ jobs:
   lint:
     name: Lint and type check
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+      with:
+        fetch-depth: 0  # Fetch all history for proper versioning
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
-    
+
     - name: Install uv
       uses: astral-sh/setup-uv@v3
-    
+
     - name: Install dependencies
       run: uv sync
-    
+
     - name: Run Ruff
       run: uv run ruff check src/
-    
+
     - name: Run MyPy
       run: uv run mypy src/youtrack_rocket_mcp --ignore-missing-imports
 
@@ -37,22 +39,24 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.9', '3.10', '3.11', '3.12']
-    
+        python-version: ['3.12', '3.13']
+
     steps:
     - uses: actions/checkout@v4
-    
+      with:
+        fetch-depth: 0  # Fetch all history for proper versioning
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    
+
     - name: Install uv
       uses: astral-sh/setup-uv@v3
-    
+
     - name: Install dependencies
       run: uv sync
-    
+
     - name: Run tests
       run: |
         uv run pytest tests/ -v --cov=youtrack_rocket_mcp --cov-report=term-missing
@@ -61,27 +65,29 @@ jobs:
   build:
     name: Build distribution
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+      with:
+        fetch-depth: 0  # Fetch all history for proper versioning
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
-    
+
     - name: Install uv
       uses: astral-sh/setup-uv@v3
-    
+
     - name: Build package
       run: uv build
-    
+
     - name: Check distribution
       run: |
         uv pip install --system twine
         twine check dist/*
         ls -lah dist/
-    
+
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:

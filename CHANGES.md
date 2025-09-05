@@ -45,7 +45,7 @@
    - Fixed: `lead` field replaced with `leader` in Project model and API requests
    - File: `src/youtrack_rocket_mcp/api/resources/projects.py`
 
-2. **Custom fields in projects** 
+2. **Custom fields in projects**
    - Custom fields now loaded only when requesting single project (optimization)
    - Custom fields not loaded when requesting project list
    - File: `src/youtrack_rocket_mcp/api/resources/projects.py`
@@ -62,7 +62,7 @@
 5. **Custom fields as dictionary**
    - Added `format_custom_fields()` function to convert custom fields to {name: value} dictionary
    - Updated queries to get full field values
-   - Files: 
+   - Files:
      - `src/youtrack_rocket_mcp/api/resources/search.py`
      - `src/youtrack_rocket_mcp/tools/search.py`
      - `src/youtrack_rocket_mcp/tools/issues.py`

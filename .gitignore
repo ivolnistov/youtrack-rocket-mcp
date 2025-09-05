@@ -13,6 +13,9 @@ __pycache__/
 *.so
 .Python
 
+# Auto-generated version file
+src/youtrack_rocket_mcp/_version.py
+
 # UV
 uv.lock
 env/

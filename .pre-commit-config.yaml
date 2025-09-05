@@ -12,7 +12,7 @@ repos:
         types: [python]
         args: [--fix]
         require_serial: true
-        
+
       - id: ruff-format
         name: ruff (format)
         entry: uv run ruff format
@@ -27,7 +27,7 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
-        args: [youtrack_mcp]
+        args: [src/youtrack_rocket_mcp, --ignore-missing-imports]
         require_serial: true
 
   # General hooks

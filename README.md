@@ -126,7 +126,7 @@ youtrack-rocket-mcp  # Run after installation
 3. Run the server:
    ```bash
    uv run python -m youtrack_rocket_mcp.server
-   
+
    # Or with activated virtual environment
    python -m youtrack_rocket_mcp.server
    ```

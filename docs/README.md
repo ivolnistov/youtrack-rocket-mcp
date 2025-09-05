@@ -13,7 +13,7 @@ For development setup, see [Development Guide](./DEVELOPMENT.md).
 
 The YouTrack MCP Server provides tools for:
 - Issue management
-- Project management  
+- Project management
 - User management
 - Search functionality
 

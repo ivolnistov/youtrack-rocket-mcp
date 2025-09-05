@@ -2,7 +2,7 @@
 Unit tests for issues API.
 """
 
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -132,7 +132,9 @@ async def test_create_issue_with_custom_fields(mock_get_field_types, mock_cache,
 @patch('youtrack_rocket_mcp.api.resources.issues.get_field_types_from_project')
 @patch('youtrack_rocket_mcp.api.resources.issues.extract_field_types_from_issues')
 @pytest.mark.asyncio
-async def test_create_issue_fallback_to_issues(mock_extract, mock_get_field_types, mock_cache, issues_client, mock_client):
+async def test_create_issue_fallback_to_issues(
+    mock_extract, mock_get_field_types, mock_cache, issues_client, mock_client
+):
     """Test fallback to extracting field types from issues."""
     # Setup mocks - no cached types, no project types
     mock_cache.get_field_types.return_value = None
@@ -183,7 +185,9 @@ async def test_create_issue_no_field_types_uses_default(mock_get_field_types, mo
     mock_client.base_url = 'https://test.youtrack.cloud/api'
 
     # Create issue with unknown field
-    await issues_client.create_issue(project_id='0-167', summary='Test Issue', additional_fields={'UnknownField': 'Value'})
+    await issues_client.create_issue(
+        project_id='0-167', summary='Test Issue', additional_fields={'UnknownField': 'Value'}
+    )
 
     # Check API call
     call_args = mock_client.client.post.call_args

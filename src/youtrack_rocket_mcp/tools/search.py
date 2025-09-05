@@ -74,21 +74,14 @@ class SearchTools:
             raw_issues = await self.client.get('issues', params=params)
 
             # Get total count of matching issues
-            count_params = {'query': query, '$top': 1, 'fields': 'id'}
-            count_response = await self.client.get('issues', params=count_params)
-            
-            # Calculate total from response headers or estimate from current results
             total_count = len(raw_issues)
-            if '$skip' in params:
-                # If we have pagination info, try to get from headers
-                total_count = len(raw_issues)  # Default to current count
-            else:
+            if len(raw_issues) == limit:
                 # Make a count request with a high limit to get actual total
                 count_params_full = {'query': query, '$top': 1000, 'fields': 'id'}
                 try:
                     count_full = await self.client.get('issues', params=count_params_full)
                     total_count = len(count_full)
-                except:
+                except Exception:
                     total_count = len(raw_issues)  # Fallback to current count
 
             # Format custom fields for each issue
@@ -99,15 +92,12 @@ class SearchTools:
                     del issue['customFields']
 
             # Create result with metadata
-            result = {
-                'total': total_count,
-                'shown': len(raw_issues),
-                'limit': limit,
-                'issues': raw_issues
-            }
-            
+            result = {'total': total_count, 'shown': len(raw_issues), 'limit': limit, 'issues': raw_issues}
+
             if total_count > len(raw_issues):
-                result['message'] = f'Showing {len(raw_issues)} of {total_count} total issues. Increase limit to see more.'
+                result['message'] = (
+                    f'Showing {len(raw_issues)} of {total_count} total issues. Increase limit to see more.'
+                )
 
             # Return the formatted issues data
             return json.dumps(result, indent=2)

@@ -28,21 +28,21 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    # Dependencies  
+    # Dependencies
     "python-dotenv>=1.0.0",
-    
+
     # Code quality tools
     "ruff>=0.11.9",
     "mypy>=1.17.1",
     "pre-commit>=3.8.0",
     "detect-secrets>=1.5.0",
-    
+
     # Testing tools
     "pytest>=7.0.0",
     "pytest-cov>=3.0.0",
     "pytest-mock>=3.0.0",
     "pytest-asyncio>=0.24.0",
-    
+
     # Type stubs
     "types-requests",
 ]
@@ -54,11 +54,15 @@ mcp = { git = "https://github.com/modelcontextprotocol/python-sdk.git", rev = "m
 youtrack-rocket-mcp = "youtrack_rocket_mcp.server:main"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-path = "src/youtrack_rocket_mcp/version.py"
+source = "vcs"
+fallback-version = "0.0.0-dev"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/youtrack_rocket_mcp/_version.py"
 
 [tool.hatch.build.targets.wheel]
 sources = ["src"]
