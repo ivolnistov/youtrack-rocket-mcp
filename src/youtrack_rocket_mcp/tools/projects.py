@@ -4,6 +4,10 @@ YouTrack Project MCP tools.
 
 import json
 import logging
+from typing import Annotated
+
+from fastmcp import FastMCP
+from pydantic import Field
 
 from youtrack_rocket_mcp.api.client import YouTrackClient
 from youtrack_rocket_mcp.api.resources.issues import IssuesClient
@@ -60,15 +64,19 @@ class ProjectTools:
             logger.exception('Error getting projects')
             return json.dumps({'error': str(e)})
 
-    async def get_project(self, project_id: str | None = None, project: str | None = None) -> str:
+    async def get_project(
+        self, project_id: str | None = None, project: str | None = None, compact: bool = True, max_values: int = 20
+    ) -> str:
         """
         Get information about a specific project.
 
-        FORMAT: get_project(project_id="0-0")
+        FORMAT: get_project(project_id="0-0", compact=True, max_values=20)
 
         Args:
             project_id: The project ID
             project: Alternative parameter name for project_id
+            compact: If True, returns compact version without full custom field values
+            max_values: Maximum number of possible values to include for each field (default: 20)
 
         Returns:
             JSON string with project information
@@ -83,6 +91,84 @@ class ProjectTools:
 
             # Handle both Pydantic models and dictionaries in the response
             result = project_obj.model_dump() if hasattr(project_obj, 'model_dump') else project_obj
+
+            # If compact mode, simplify custom fields
+            if compact and 'custom_fields' in result and result['custom_fields']:
+                compact_fields = []
+                for field in result['custom_fields']:
+                    field_name = field.get('field', {}).get('name', 'Unknown')
+                    field_type_obj = field.get('field', {}).get('fieldType', {})
+                    field_type = field.get('$type', '').replace('ProjectCustomField', '')
+                    value_type = field_type_obj.get('valueType', '')
+
+                    compact_field = {
+                        'name': field_name,
+                        'required': not field.get('canBeEmpty', True),
+                        'type': field_type,
+                    }
+
+                    # Add format hints based on field type
+                    if value_type == 'period' or field_type == 'Period':
+                        compact_field['format'] = 'Duration: 1w 2d 4h 30m (w=weeks, d=days, h=hours, m=minutes)'
+                        compact_field['examples'] = ['1h', '2d 4h', '1w 3d', '30m', '1d 2h 30m']
+                    elif value_type == 'date' or field_type == 'Date':
+                        compact_field['format'] = 'Date: YYYY-MM-DD'
+                        compact_field['examples'] = ['2024-01-15', '2024-12-31']
+                    elif value_type == 'date and time' or field_type == 'DateTime':
+                        compact_field['format'] = 'DateTime: YYYY-MM-DD HH:MM or ISO 8601'
+                        compact_field['examples'] = ['2024-01-15 14:30', '2024-01-15T14:30:00']
+                    elif value_type == 'integer' or field_type == 'Integer':
+                        compact_field['format'] = 'Integer: Whole number'
+                        compact_field['examples'] = [1, 100, -50]
+                    elif value_type == 'float' or field_type == 'Float':
+                        compact_field['format'] = 'Float: Decimal number'
+                        compact_field['examples'] = [1.5, 3.14, -2.7]
+                    elif value_type == 'string' or field_type in ['Text', 'String']:
+                        compact_field['format'] = 'Text: Any text value'
+                    elif field_type in ['User', 'UserProjectCustomField']:
+                        compact_field['format'] = 'User: Login name or user ID'
+                        compact_field['examples'] = ['john.doe', 'jane.smith', 'me']
+                    elif field_type in ['Version', 'VersionProjectCustomField']:
+                        compact_field['format'] = 'Version: Version name'
+                        compact_field['examples'] = ['1.0', '2.0.1', 'v3.0-beta']
+                    elif field_type in ['OwnedField', 'OwnedProjectCustomField']:
+                        compact_field['format'] = 'OwnedField: Field owner reference'
+
+                    # Add possible values for bundle fields
+                    if 'bundle' in field and 'values' in field['bundle']:
+                        active_values = [v for v in field['bundle']['values'] if not v.get('archived', False)]
+
+                        # Sort by ordinal (ascending) - this is the manual order in YouTrack UI
+                        # Lower ordinal values appear first in the UI
+                        active_values.sort(key=lambda v: v.get('ordinal', 0))
+
+                        total_count = len(active_values)
+
+                        # For large lists, show the last (bottom) values which are often most recently added
+                        # though ordinal doesn't guarantee creation order
+                        if total_count > 0:
+                            # Take the last max_values items from the sorted list if needed
+                            limited_values = active_values[-max_values:] if total_count > max_values else active_values
+                            compact_field['possible_values'] = [v.get('name') for v in limited_values]
+
+                            # Add count info to field name for clarity
+                            shown = min(len(limited_values), max_values)
+                            if total_count > max_values:
+                                compact_field['name'] = f'{field_name} ({shown}/{total_count} values shown)'
+                                compact_field['has_more'] = True
+                            else:
+                                compact_field['name'] = f'{field_name} ({total_count} values)'
+
+                            compact_field['values_info'] = {
+                                'total': total_count,
+                                'shown': shown,
+                                'has_more': total_count > max_values,
+                            }
+
+                    compact_fields.append(compact_field)
+
+                result['custom_fields'] = compact_fields
+                result['custom_fields_summary'] = f'{len(compact_fields)} fields configured'
 
             return json.dumps(result, indent=2)
         except Exception as e:
@@ -166,6 +252,71 @@ class ProjectTools:
             return json.dumps({'error': str(e)})
 
     # @sync_wrapper removed
+    async def get_field_values(self, project_id: str, field_name: str) -> str:
+        """
+        Get all possible values for a specific custom field in a project.
+
+        FORMAT: get_field_values(project_id="ITSFT", field_name="State")
+
+        Args:
+            project_id: The project ID or short name
+            field_name: The name of the custom field
+
+        Returns:
+            JSON string with all possible values for the field
+        """
+        try:
+            # Get all custom fields for the project
+            custom_fields = await self.projects_api.get_custom_fields(project_id)
+
+            # Find the requested field
+            for field in custom_fields:
+                current_field_name = field.get('field', {}).get('name', '')
+                if current_field_name.lower() == field_name.lower():
+                    result = {
+                        'project': project_id,
+                        'field_name': current_field_name,
+                        'field_type': field.get('$type', '').replace('ProjectCustomField', ''),
+                        'required': not field.get('canBeEmpty', True),
+                    }
+
+                    # Get all values for bundle fields
+                    if 'bundle' in field and 'values' in field['bundle']:
+                        all_values = field['bundle']['values']
+                        active_values = [v for v in all_values if not v.get('archived', False)]
+                        archived_values = [v for v in all_values if v.get('archived', False)]
+
+                        # Sort both active and archived values by ordinal
+                        active_values.sort(key=lambda v: v.get('ordinal', 0))
+                        archived_values.sort(key=lambda v: v.get('ordinal', 0))
+
+                        result['values'] = {
+                            'active': [
+                                {'name': v.get('name'), 'id': v.get('id'), 'ordinal': v.get('ordinal', 0)}
+                                for v in active_values
+                            ],
+                            'archived': [
+                                {'name': v.get('name'), 'id': v.get('id'), 'ordinal': v.get('ordinal', 0)}
+                                for v in archived_values
+                            ],
+                        }
+                        result['summary'] = {
+                            'total_active': len(active_values),
+                            'total_archived': len(archived_values),
+                            'total': len(all_values),
+                        }
+                    else:
+                        result['values'] = None
+                        result['note'] = 'This field does not have predefined values'
+
+                    return json.dumps(result, indent=2)
+
+            return json.dumps({'error': f'Field "{field_name}" not found in project {project_id}'})
+
+        except Exception as e:
+            logger.exception(f'Error getting field values for {field_name} in project {project_id}')
+            return json.dumps({'error': str(e)})
+
     async def get_custom_fields(self, project_id: str | None = None, project: str | None = None) -> str:
         """
         Get custom fields for a project.
@@ -538,3 +689,59 @@ class ProjectTools:
                 'warnings': 'Changing short_name only affects new issues; existing issue IDs remain unchanged',
             },
         }
+
+
+def register_project_tools(mcp: FastMCP) -> None:
+    """Register project tools with the MCP server."""
+    project_tools = ProjectTools()
+
+    @mcp.tool()
+    async def get_projects(
+        include_archived: Annotated[bool, Field(description='Include archived projects')] = False,
+    ) -> str:
+        """List all available projects. Use to discover project keys for issue creation. Returns projects with short names."""
+        return await project_tools.get_projects(include_archived)
+
+    @mcp.tool()
+    async def get_project(
+        project_id: Annotated[str | None, Field(description='Project short name (e.g., ITSFT) or ID')] = None,
+        project: Annotated[str | None, Field(description='Alternative: same as project_id')] = None,
+        compact: Annotated[bool, Field(description='Compact mode (shows limited field values)')] = True,
+        max_values: Annotated[int, Field(description='Max values per field in compact mode')] = 20,
+    ) -> str:
+        """Fetch project configuration and custom fields. Use to see available states, priorities, types. Returns field values."""
+        return await project_tools.get_project(project_id, project, compact, max_values)
+
+    @mcp.tool()
+    async def get_project_by_name(
+        project_name: Annotated[str, Field(description='Full project name (not short name)')],
+    ) -> str:
+        """Find project by display name. Use when you know project title but not its key. Returns project details."""
+        return await project_tools.get_project_by_name(project_name)
+
+    @mcp.tool()
+    async def get_project_issues(
+        project_id: Annotated[str | None, Field(description='Project ID or short name to get issues from')] = None,
+        project: Annotated[str | None, Field(description='Alternative parameter name for project ID')] = None,
+        limit: Annotated[int, Field(description='Maximum number of issues to return')] = 50,
+    ) -> str:
+        """List issues in a project. Use to see all bugs, tasks, features in one project. Returns issue list."""
+        return await project_tools.get_project_issues(project_id, project, limit)
+
+    @mcp.tool()
+    async def get_field_values(
+        project_id: Annotated[str, Field(description='Project short name or ID')],
+        field_name: Annotated[str, Field(description='Field name (e.g., State, Priority, Type)')],
+    ) -> str:
+        """Get valid values for a field. Use before setting state, priority, or type. Returns allowed values list."""
+        return await project_tools.get_field_values(project_id, field_name)
+
+    @mcp.tool()
+    async def get_custom_fields(
+        project_id: Annotated[
+            str | None, Field(description='Project ID or short name to get custom fields from')
+        ] = None,
+        project: Annotated[str | None, Field(description='Alternative parameter name for project ID')] = None,
+    ) -> str:
+        """List project's custom fields. Use to discover what fields can be set. Returns field configurations."""
+        return await project_tools.get_custom_fields(project_id, project)

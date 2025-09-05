@@ -32,15 +32,16 @@ type ToolInstance = Any  # Tool class instances
 # MCP Tool Parameter types
 type ParamType = str  # "string", "number", "boolean", "object", "array"
 
+
 # Parameter definition for MCP tools
 class ParameterDefinition:
     def __init__(
         self,
-        param_type: ParamType = "string",
-        description: str = "",
+        param_type: ParamType = 'string',
+        description: str = '',
         required: bool = True,
         default: Any = None,
-        enum: list[Any] | None = None
+        enum: list[Any] | None = None,
     ):
         self.type = param_type
         self.description = description
@@ -50,12 +51,9 @@ class ParameterDefinition:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to MCP parameter schema format."""
-        result: dict[str, Any] = {
-            "type": self.type,
-            "description": self.description
-        }
+        result: dict[str, Any] = {'type': self.type, 'description': self.description}
         if self.enum is not None:
-            result["enum"] = self.enum
+            result['enum'] = self.enum
         if not self.required and self.default is not None:
-            result["default"] = self.default
+            result['default'] = self.default
         return result

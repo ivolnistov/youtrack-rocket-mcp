@@ -9,6 +9,53 @@ from youtrack_rocket_mcp.api.types import CustomFieldData, JSONList
 class SearchClient:
     """Client for advanced search operations in YouTrack."""
 
+    @staticmethod
+    def format_custom_fields(custom_fields: list) -> dict[str, str | None]:
+        """
+        Format custom fields from array to dictionary {name: value}.
+
+        Args:
+            custom_fields: List of custom field objects
+
+        Returns:
+            Dictionary mapping field names to their values
+        """
+        result = {}
+        for field in custom_fields:
+            name = field.get('name')
+            if name:
+                value = field.get('value')
+                if value:
+                    # Extract actual value from complex objects
+                    if isinstance(value, dict):
+                        # Check if it's an empty type object (like {"$type": "StateBundleElement"})
+                        if len(value) == 1 and '$type' in value:
+                            # This is an empty value, the field type is set but no actual value
+                            actual_value = None
+                        else:
+                            # For objects like User, State, etc., try to get the most meaningful value
+                            actual_value = (
+                                value.get('name')
+                                or value.get('login')
+                                or value.get('text')
+                                or value.get('localizedName')
+                                or (str(value.get('id', '')) if value.get('id') else None)
+                            )
+                    elif isinstance(value, list):
+                        # For multi-value fields
+                        if len(value) > 0:
+                            actual_value = ', '.join(
+                                v.get('name', str(v)) if isinstance(v, dict) else str(v) for v in value
+                            )
+                        else:
+                            actual_value = None
+                    else:
+                        actual_value = str(value) if value else None
+                    result[name] = actual_value
+                else:
+                    result[name] = None
+        return result
+
     def __init__(self, client: YouTrackClient):
         """
         Initialize the Search API client.
@@ -83,7 +130,16 @@ class SearchClient:
                 params['$sortOrder'] = sort_order.lower()
 
         # Make the API request
-        return await self.client.get('issues', params=params)
+        issues = await self.client.get('issues', params=params)
+
+        # Format custom fields for each issue
+        for issue in issues:
+            if 'customFields' in issue:
+                issue['custom_fields'] = self.format_custom_fields(issue['customFields'])
+                # Remove original customFields - keep only formatted version
+                del issue['customFields']
+
+        return issues
 
     async def search_with_custom_field_values(
         self, query: str, custom_field_values: CustomFieldData, limit: int = 10

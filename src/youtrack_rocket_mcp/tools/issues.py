@@ -4,10 +4,15 @@ YouTrack Issue MCP tools.
 
 import json
 import logging
+from typing import Annotated, Any
+
+from fastmcp import FastMCP
+from pydantic import Field
 
 from youtrack_rocket_mcp.api.client import YouTrackClient
 from youtrack_rocket_mcp.api.resources.issues import IssuesClient
 from youtrack_rocket_mcp.api.resources.projects import ProjectsClient
+from youtrack_rocket_mcp.api.resources.search import SearchClient
 from youtrack_rocket_mcp.api.types import CustomFieldData, JSONDict
 from youtrack_rocket_mcp.config import Config
 
@@ -39,13 +44,19 @@ class IssueTools:
             fields = (
                 'id,idReadable,summary,description,created,updated,'
                 'project(id,name,shortName),reporter(id,login,name),'
-                'assignee(id,login,name),customFields(id,name,value)'
+                'assignee(id,login,name),customFields(id,name,value(id,name,login,text,localizedName))'
             )
             raw_issue = await self.client.get(f'issues/{issue_id}?fields={fields}')
 
             # If we got a minimal response, enhance it with default values
             if isinstance(raw_issue, dict) and raw_issue.get('$type') == 'Issue' and 'summary' not in raw_issue:
                 raw_issue['summary'] = f'Issue {issue_id}'  # Provide a default summary
+
+            # Format custom fields if present
+            if isinstance(raw_issue, dict) and 'customFields' in raw_issue:
+                raw_issue['custom_fields'] = SearchClient.format_custom_fields(raw_issue['customFields'])
+                # Remove original customFields - keep only formatted version
+                del raw_issue['customFields']
 
             # Return the raw issue data directly - avoid model validation issues
             return json.dumps(raw_issue, indent=2)
@@ -72,10 +83,17 @@ class IssueTools:
             fields = (
                 'id,idReadable,summary,description,created,updated,'
                 'project(id,name,shortName),reporter(id,login,name),'
-                'assignee(id,login,name),customFields(id,name,value)'
+                'assignee(id,login,name),customFields(id,name,value(id,name,login,text,localizedName))'
             )
             params = {'query': query, '$top': limit, 'fields': fields}
             raw_issues = await self.client.get('issues', params=params)
+
+            # Format custom fields for each issue
+            for issue in raw_issues:
+                if isinstance(issue, dict) and 'customFields' in issue:
+                    issue['custom_fields'] = SearchClient.format_custom_fields(issue['customFields'])
+                    # Remove original customFields - keep only formatted version
+                    del issue['customFields']
 
             # Return the raw issues data directly
             return json.dumps(raw_issues, indent=2)
@@ -270,6 +288,83 @@ class IssueTools:
             logger.exception(f'Error adding comment to issue {issue_id}')
             return json.dumps({'error': str(e)})
 
+    async def execute_command(
+        self, command: str, issues: list[str] | str, comment: str | None = None, silent: bool = False
+    ) -> str:
+        """
+        Execute a YouTrack command on one or more issues.
+
+        FORMAT: execute_command(
+            command="for me state in progress",
+            issues=["DEMO-123", "DEMO-124"],
+            comment="Taking over these issues",
+            silent=False
+        )
+
+        Common commands:
+        - "for me" - assign to yourself
+        - "state Fixed" - change state
+        - "Priority Critical" - set priority
+        - "tag Bug" - add tag
+        - "assignee john.doe" - assign to user
+        - "due date next week" - set due date
+
+        Args:
+            command: The YouTrack command to execute
+            issues: Issue ID(s) or readable ID(s) - can be a string or list
+            comment: Optional comment to add with the command
+            silent: If True, no notifications will be sent
+
+        Returns:
+            JSON string with the result
+        """
+        try:
+            # Ensure issues is a list
+            if isinstance(issues, str):
+                issues = [issues]
+
+            # Build the request payload
+            payload: dict[str, Any] = {'query': command, 'issues': [], 'silent': silent}
+
+            # Format issues for the API (can use either id or idReadable)
+            for issue in issues:
+                # Check if it looks like a readable ID (contains hyphen)
+                if '-' in issue and not issue.startswith('2-'):
+                    payload['issues'].append({'idReadable': issue})
+                else:
+                    payload['issues'].append({'id': issue})
+
+            # Add comment if provided
+            if comment:
+                payload['comment'] = comment
+
+            logger.info(f'Executing command "{command}" on {len(issues)} issue(s)')
+
+            # Execute the command via API
+            # The API returns 200 OK with empty body on success (unless fields param is specified)
+            # We still capture it to ensure the request completed successfully
+            await self.client.post('commands', json_data=payload)
+
+            # If we get here without exception, command was successful
+            logger.info(f'Successfully executed command "{command}"')
+
+            # Return success response
+            result = {
+                'status': 'success',
+                'command': command,
+                'issues_count': len(issues),
+                'issues': issues,
+                'silent': silent,
+            }
+            if comment:
+                result['comment'] = comment
+
+            return json.dumps(result, indent=2)
+
+        except Exception as e:
+            logger.exception(f'Error executing command "{command}" on issues')
+            return json.dumps({'error': str(e), 'command': command, 'issues': issues})
+
     def close(self) -> None:
         """Close the API client."""
         self.client.close()
@@ -287,8 +382,99 @@ class IssueTools:
             Raw JSON string with the issue data
         """
         try:
-            raw_issue = await self.client.get(f'issues/{issue_id}')
+            # Get all fields including raw customFields
+            fields = (
+                'id,idReadable,summary,description,created,updated,resolved,'
+                'project(id,name,shortName),reporter(id,login,name),'
+                'assignee(id,login,name),customFields(id,name,value($type,name,login,text,localizedName,id))'
+            )
+            raw_issue = await self.client.get(f'issues/{issue_id}?fields={fields}')
+            # Return raw data without any formatting
             return json.dumps(raw_issue, indent=2)
         except Exception as e:
             logger.exception(f'Error getting raw issue {issue_id}')
             return json.dumps({'error': str(e)})
+
+
+def register_issue_tools(mcp: FastMCP) -> None:
+    """Register issue tools with the MCP server."""
+    issue_tools = IssueTools()
+
+    @mcp.tool()
+    async def get_issue(
+        issue_id: Annotated[str, Field(description='Issue ID (e.g., ITSFT-123 or 2-12345)')],
+    ) -> str:
+        """Retrieve complete issue details. Use to view bug reports, feature requests, or task status. Returns JSON with all issue fields."""
+        return await issue_tools.get_issue(issue_id)
+
+    @mcp.tool()
+    async def get_issue_raw(
+        issue_id: Annotated[str, Field(description='Issue ID (e.g., ITSFT-123 or 2-12345)')],
+    ) -> str:
+        """Fetch raw API response for an issue. Use when standard get_issue doesn't provide needed fields. Returns unprocessed JSON."""
+        return await issue_tools.get_issue_raw(issue_id)
+
+    @mcp.tool()
+    async def create_issue(
+        project: Annotated[str, Field(description='Project short name (e.g., ITSFT) or ID')],
+        summary: Annotated[str, Field(description='Issue title/summary')],
+        description: Annotated[str | None, Field(description='Issue description (markdown supported)')] = None,
+        custom_fields: Annotated[
+            dict[str, Any] | str | None,
+            Field(
+                description='Custom field values as dict: {"Priority": "Critical", "Type": "Bug"}. '
+                'Use get_project to see available fields and values.'
+            ),
+        ] = None,
+    ) -> str:
+        """Create new bug report, feature request, or task. Automatically generates issue ID. Returns created issue with URL."""
+        # Handle custom_fields as either dict or JSON string
+        parsed_custom_fields: dict[str, Any] | None = None
+        if isinstance(custom_fields, str):
+            try:
+                parsed_custom_fields = json.loads(custom_fields)
+            except json.JSONDecodeError:
+                return f'Error: custom_fields must be a valid JSON string or dictionary, got: {custom_fields}'
+        elif custom_fields is not None:
+            parsed_custom_fields = custom_fields
+
+        return await issue_tools.create_issue(project, summary, description, parsed_custom_fields)
+
+    @mcp.tool()
+    async def add_comment(
+        issue_id: Annotated[str, Field(description='Issue ID (e.g., ITSFT-123 or 2-12345)')],
+        text: Annotated[str, Field(description='Comment text (markdown supported)')],
+    ) -> str:
+        """Post comment on issue for discussion, updates, or clarifications. Supports markdown. Returns success confirmation."""
+        return await issue_tools.add_comment(issue_id, text)
+
+    @mcp.tool()
+    async def search_issues(
+        query: Annotated[
+            str,
+            Field(
+                description="""
+        YouTrack query. Examples:
+        • 'project: ITSFT' • 'assignee: me' • '#Unresolved'
+        • 'created: today' • 'updated: {this week}' • 'due: 2024-01-01 .. 2024-12-31'
+        • 'Type: Bug Priority: Critical' • 'has: comments' • 'tag: important'
+        • '"exact phrase"' • 'summary: bug*' • state: Open OR state: {In Progress}
+        """
+            ),
+        ],
+        limit: Annotated[int, Field(description='Max results (default: 10)')] = 10,
+    ) -> str:
+        """Find issues using YouTrack query syntax. Supports all search operators and filters. Returns matching issues list."""
+        return await issue_tools.search_issues(query, limit)
+
+    @mcp.tool()
+    async def execute_command(
+        command: Annotated[
+            str, Field(description='Command: "for me", "state Fixed", "Priority High" (use get_project for values)')
+        ],
+        issues: Annotated[list[str] | str, Field(description='Issue ID(s) - single string or list (e.g., ITSFT-123)')],
+        comment: Annotated[str | None, Field(description='Optional comment to add with the command')] = None,
+        silent: Annotated[bool, Field(description='If True, no notifications will be sent')] = False,
+    ) -> str:
+        """Batch update issues using commands like 'for me', 'state Fixed', 'Priority High'. Efficient for bulk operations."""
+        return await issue_tools.execute_command(command, issues, comment, silent)

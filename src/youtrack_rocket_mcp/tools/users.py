@@ -1,5 +1,9 @@
 import json
 import logging
+from typing import Annotated
+
+from fastmcp import FastMCP
+from pydantic import Field
 
 from youtrack_rocket_mcp.api.client import YouTrackClient
 from youtrack_rocket_mcp.api.resources.users import UsersClient
@@ -204,3 +208,36 @@ class UserTools:
                 },
             },
         }
+
+
+def register_user_tools(mcp: FastMCP) -> None:
+    """Register user tools with the MCP server."""
+    user_tools = UserTools()
+
+    @mcp.tool()
+    async def get_user(
+        user_id: Annotated[str | None, Field(description='User ID to retrieve information for')] = None,
+        user: Annotated[str | None, Field(description='Alternative parameter name for user ID')] = None,
+    ) -> str:
+        """Fetch user details by ID. Use to get user's email, groups, or full name. Returns user profile."""
+        return await user_tools.get_user(user_id, user)
+
+    @mcp.tool()
+    async def get_user_by_login(
+        login: Annotated[str, Field(description='User login/username to retrieve information for')],
+    ) -> str:
+        """Find user by login name. Use when you have username not ID. Returns user details."""
+        return await user_tools.get_user_by_login(login)
+
+    @mcp.tool()
+    async def search_users(
+        query: Annotated[str, Field(description='Search query for user name or login')],
+        limit: Annotated[int, Field(description='Maximum number of users to return')] = 10,
+    ) -> str:
+        """Search users by name or login. Use to find team members or assignees. Returns matching users."""
+        return await user_tools.search_users(query, limit)
+
+    @mcp.tool()
+    async def get_current_user() -> str:
+        """Get current API user. Use to check authentication or get 'me' for searches. Returns authenticated user."""
+        return await user_tools.get_current_user()

@@ -21,7 +21,7 @@ class Project(BaseModel):
     archived: bool = False
     created: int | None = None
     updated: int | None = None
-    lead: JSONDict | None = None
+    leader: JSONDict | None = None
     custom_fields: JSONList = Field(default_factory=list)
 
 
@@ -47,7 +47,7 @@ class ProjectsClient:
         Returns:
             List of projects
         """
-        params = {'fields': 'id,name,shortName,description,archived,created,updated,lead(id,name,login)'}
+        params = {'fields': 'id,name,shortName,description,archived,created,updated,leader(id,name,login)'}
         if not include_archived:
             params['$filter'] = 'archived eq false'
 
@@ -56,18 +56,29 @@ class ProjectsClient:
 
     async def get_project(self, project_id: str) -> Project:
         """
-        Get a project by ID.
+        Get a project by ID with custom fields.
 
         Args:
             project_id: The project ID
 
         Returns:
-            The project data
+            The project data with custom fields
         """
         response = await self.client.get(
             f'admin/projects/{project_id}',
-            params={'fields': 'id,name,shortName,description,archived,created,updated,lead(id,name,login)'},
+            params={'fields': 'id,name,shortName,description,archived,created,updated,leader(id,name,login)'},
         )
+
+        # Get custom fields for this specific project
+        try:
+            custom_fields = await self.get_custom_fields(project_id)
+            response['custom_fields'] = custom_fields
+        except Exception as e:
+            # Log error but don't fail if we can't get custom fields
+            logger = logging.getLogger(__name__)
+            logger.warning(f'Could not fetch custom fields for project {project_id}: {e}')
+            response['custom_fields'] = []
+
         return Project.model_validate(response)
 
     async def get_project_by_name(self, project_name: str) -> Project | None:
@@ -279,7 +290,7 @@ class ProjectsClient:
                         # Update with new values
                         for key, value in data.items():
                             if key == 'leader':
-                                original_project.lead = value  # type: ignore[assignment]
+                                original_project.leader = value  # type: ignore[assignment]
                             else:
                                 setattr(original_project, key, value)
                     except Exception:
@@ -348,7 +359,7 @@ class ProjectsClient:
                         # Try to get this specific field with bundle information
                         field_id = field.get('id')
                         if field_id:
-                            bundle_fields = 'id,field(name),bundle(id,values(id,name,description,archived))'
+                            bundle_fields = 'id,field(name),bundle(id,values(id,name,description,archived,ordinal))'
                             bundle_params = {'fields': bundle_fields}
 
                             # Get the specific field with bundle info

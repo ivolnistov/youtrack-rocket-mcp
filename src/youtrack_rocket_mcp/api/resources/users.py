@@ -104,9 +104,15 @@ class UsersClient:
         Returns:
             The user data or None if not found
         """
-        # Search for the exact login
-        users = await self.search_users(f'login: {login}', limit=1)
-        return users[0] if users else None
+        # Search for users by login - just use the login directly without prefix
+        users = await self.search_users(login, limit=10)
+
+        # Filter to find exact match since search may return partial matches
+        for user in users:
+            if user.login == login:
+                return user
+
+        return None
 
     async def get_user_groups(self, user_id: str) -> JSONList:
         """

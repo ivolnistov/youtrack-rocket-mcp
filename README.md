@@ -82,22 +82,45 @@ docker run -i --rm -e YOUTRACK_API_TOKEN=perm:your-api-token -e YOUTRACK_CLOUD=t
 
 ## Installation & Usage
 
+### Quick Start with uvx (No Installation Required)
+
+Run it directly without installation using `uvx`:
+
+```bash
+# Run directly from PyPI
+export YOUTRACK_URL="https://your-instance.youtrack.cloud"
+export YOUTRACK_API_TOKEN="perm:your-api-token"
+uvx youtrack-rocket-mcp
+
+# Or with specific version
+uvx youtrack-rocket-mcp@0.4.1
+
+# Install persistently with uv tool
+uv tool install youtrack-rocket-mcp
+youtrack-rocket-mcp  # Run after installation
+```
+
 ### Local Installation with FastMCP (Recommended)
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/youtrack-rocket-mcp.git
+   git clone https://github.com/ivolnistov/youtrack-rocket-mcp.git
    cd youtrack-rocket-mcp
    ```
 
-2. Install dependencies:
+2. Install dependencies with UV:
    ```bash
-   pip install -r requirements.txt
+   # Install all dependencies including dev group (pytest, ruff, mypy, etc.)
+   uv sync
+   # Note: uv sync includes dev dependencies by default
    ```
 
 3. Run the server:
    ```bash
-   python __main__.py
+   uv run python -m youtrack_rocket_mcp.server
+   
+   # Or with activated virtual environment
+   python -m youtrack_rocket_mcp.server
    ```
 
 ### Testing with MCP Inspector
@@ -185,24 +208,45 @@ This builds the image for both ARM64 (Apple Silicon) and AMD64 (Intel/AMD) archi
 
 To use your YouTrack MCP server with Cursor IDE:
 
-1. Create a `.cursor/mcp.json` file in your project with the following content:
+#### Option 1: Using uvx (Recommended)
 
-    ```json
-    {
-        "mcpServers": {
-            "YouTrack": {
-                "type": "stdio",
-                "command": "docker",
-                "args": ["run", "-i", "--rm",
-                "-e", "YOUTRACK_API_TOKEN=perm:your-api-token",
-                "-e", "YOUTRACK_URL=https://your-instance.youtrack.cloud",
-                "-e", "YOUTRACK_CLOUD=true",
-                "youtrack-rocket-mcp:latest"
-                ]
+Create a `.cursor/mcp.json` file in your project:
+
+```json
+{
+    "mcpServers": {
+        "YouTrack": {
+            "type": "stdio",
+            "command": "uvx",
+            "args": ["youtrack-rocket-mcp"],
+            "env": {
+                "YOUTRACK_URL": "https://your-instance.youtrack.cloud",
+                "YOUTRACK_API_TOKEN": "perm:your-api-token",
+                "YOUTRACK_CLOUD": "true"
             }
         }
     }
-    ```
+}
+```
+
+#### Option 2: Using Docker
+
+```json
+{
+    "mcpServers": {
+        "YouTrack": {
+            "type": "stdio",
+            "command": "docker",
+            "args": ["run", "-i", "--rm",
+            "-e", "YOUTRACK_API_TOKEN=perm:your-api-token",
+            "-e", "YOUTRACK_URL=https://your-instance.youtrack.cloud",
+            "-e", "YOUTRACK_CLOUD=true",
+            "youtrack-rocket-mcp:latest"
+            ]
+        }
+    }
+}
+```
 
 2. Replace `yourinstance.youtrack.cloud` with your actual YouTrack instance URL and `perm:your-token` with your actual API token.
 
@@ -212,27 +256,49 @@ To use your YouTrack MCP server with Cursor IDE:
 
 To use with Claude Desktop:
 
+#### Option 1: Using uvx (Recommended)
+
 1. Open Claude Desktop preferences
 2. Navigate to the MCP section
-3. Click Edit.
+3. Click Edit
 4. Open claude_desktop_config.json
-5. Add a new MCP server with:
-    ```json
-    {
-        "mcpServers": {
-            "YouTrack": {
-                "type": "stdio",
-                "command": "docker",
-                "args": ["run", "-i", "--rm",
-                "-e", "YOUTRACK_API_TOKEN=perm:your-api-token",
-                "-e", "YOUTRACK_URL=https://your-instance.youtrack.cloud",
-                "-e", "YOUTRACK_CLOUD=true",
-                "youtrack-rocket-mcp:latest"
-                ]
+5. Add a new MCP server:
+
+```json
+{
+    "mcpServers": {
+        "YouTrack": {
+            "type": "stdio",
+            "command": "uvx",
+            "args": ["youtrack-rocket-mcp"],
+            "env": {
+                "YOUTRACK_URL": "https://your-instance.youtrack.cloud",
+                "YOUTRACK_API_TOKEN": "perm:your-api-token",
+                "YOUTRACK_CLOUD": "true"
             }
         }
     }
-    ```
+}
+```
+
+#### Option 2: Using Docker
+
+```json
+{
+    "mcpServers": {
+        "YouTrack": {
+            "type": "stdio",
+            "command": "docker",
+            "args": ["run", "-i", "--rm",
+            "-e", "YOUTRACK_API_TOKEN=perm:your-api-token",
+            "-e", "YOUTRACK_URL=https://your-instance.youtrack.cloud",
+            "-e", "YOUTRACK_CLOUD=true",
+            "youtrack-rocket-mcp:latest"
+            ]
+        }
+    }
+}
+```
 
 Replace the URL and token with your actual values.
 
@@ -240,21 +306,31 @@ Replace the URL and token with your actual values.
 
 For Claude Code users, add the MCP server using one of these commands:
 
-**Option 1: Using Local Installation with Python (Recommended)**
+**Option 1: Using uvx (Recommended)**
 ```bash
 # Remove old server if exists
-claude mcp remove YouTrack
+claude mcp remove youtrack-rocket-mcp
 
-# Add new server with Python
-claude mcp add youtrack-rocket-mcp --env YOUTRACK_URL=https://your-youtrack-instance.com --env YOUTRACK_API_TOKEN=your-api-token --scope user -- python /path/to/youtrack-rocket-mcp/__main__.py
+# Add new server with uvx
+claude mcp add youtrack-rocket-mcp \
+  --env YOUTRACK_URL=https://your-instance.youtrack.cloud \
+  --env YOUTRACK_API_TOKEN=perm:your-api-token \
+  --env YOUTRACK_CLOUD=true \
+  --scope user \
+  -- uvx youtrack-rocket-mcp
 ```
 
-For YouTrack Cloud:
+**Option 2: Using Local Installation with Python**
 ```bash
-claude mcp add youtrack-rocket-mcp --env YOUTRACK_URL=https://your-instance.youtrack.cloud --env YOUTRACK_API_TOKEN=perm:your-permanent-token --scope user -- uv run --directory /path/to/youtrack-rocket-mcp python -m youtrack_rocket_mcp.server
+# Add new server with Python
+claude mcp add youtrack-rocket-mcp \
+  --env YOUTRACK_URL=https://your-youtrack-instance.com \
+  --env YOUTRACK_API_TOKEN=your-api-token \
+  --scope user \
+  -- uv run --directory /path/to/youtrack-rocket-mcp python -m youtrack_rocket_mcp.server
 ```
 
-**Option 2: Using Docker**
+**Option 3: Using Docker**
 ```bash
 claude mcp add youtrack-rocket-mcp --env YOUTRACK_URL=https://your-youtrack-instance.com --env YOUTRACK_API_TOKEN=your-api-token --scope user -- docker run -i --rm tonyzorin/youtrack-mcp:latest
 ```

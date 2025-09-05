@@ -4,6 +4,8 @@ YouTrack Search Guide - Helper tool for YouTrack query language.
 
 import json
 
+from fastmcp import FastMCP
+
 from youtrack_rocket_mcp.api.types import ToolRegistry
 
 
@@ -300,3 +302,18 @@ class SearchGuide:
                 'parameters': {},
             },
         }
+
+
+def register_search_guide_tools(mcp: FastMCP) -> None:
+    """Register search guide tools with the MCP server."""
+    search_guide = SearchGuide()
+
+    @mcp.tool()
+    async def get_search_syntax_guide() -> str:
+        """Learn YouTrack search syntax. Use when unsure how to write queries. Returns complete syntax reference."""
+        return await search_guide.get_search_syntax_guide()
+
+    @mcp.tool()
+    async def get_common_queries() -> str:
+        """Get search query examples. Use for inspiration or templates. Returns common queries by use case."""
+        return await search_guide.get_common_queries()

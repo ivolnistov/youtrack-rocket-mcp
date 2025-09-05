@@ -5,9 +5,14 @@ YouTrack Search MCP tools.
 import json
 import logging
 from datetime import datetime
+from typing import Annotated
+
+from fastmcp import FastMCP
+from pydantic import Field
 
 from youtrack_rocket_mcp.api.client import YouTrackClient
 from youtrack_rocket_mcp.api.resources.issues import IssuesClient
+from youtrack_rocket_mcp.api.resources.search import SearchClient
 from youtrack_rocket_mcp.api.types import CustomFieldData, ToolRegistry
 
 logger = logging.getLogger(__name__)
@@ -60,15 +65,22 @@ class SearchTools:
                 logger.info(f'Sorting by: {sort_param}')
 
             # Request with explicit fields to get complete data
-            fields = 'id,summary,description,created,updated,project(id,name,shortName),reporter(id,login,name),assignee(id,login,name),customFields(id,name,value)'
+            fields = 'id,summary,description,created,updated,project(id,name,shortName),reporter(id,login,name),assignee(id,login,name),customFields(id,name,value(id,name,login,text,localizedName))'
             params = {'query': query, '$top': limit, 'fields': fields}
 
             if sort_param:
                 params['$sort'] = sort_param
 
-            raw_issues = self.client.get('issues', params=params)
+            raw_issues = await self.client.get('issues', params=params)
 
-            # Return the raw issues data directly
+            # Format custom fields for each issue
+            for issue in raw_issues:
+                if 'customFields' in issue:
+                    issue['custom_fields'] = SearchClient.format_custom_fields(issue['customFields'])
+                    # Remove original customFields - keep only formatted version
+                    del issue['customFields']
+
+            # Return the formatted issues data
             return json.dumps(raw_issues, indent=2)
 
         except Exception as e:
@@ -329,3 +341,79 @@ class SearchTools:
                 ],
             },
         }
+
+
+def register_search_tools(mcp: FastMCP) -> None:
+    """Register search tools with the MCP server."""
+    search_tools = SearchTools()
+
+    @mcp.tool()
+    async def advanced_search(
+        query: Annotated[
+            str,
+            Field(
+                description="""
+        Same as search_issues + SORTING. All YouTrack syntax supported.
+        Use for: newest issues, highest priority, most commented, etc.
+        """
+            ),
+        ],
+        limit: Annotated[int, Field(description='Max results')] = 10,
+        sort_by: Annotated[
+            str | None, Field(description='Sort by: created, updated, priority, votes, comments')
+        ] = None,
+        sort_order: Annotated[str | None, Field(description='asc (oldest first) or desc (newest first)')] = None,
+    ) -> str:
+        """Search and sort issues. Use to find newest bugs, high priority tasks, or most voted features. Supports full query syntax."""
+        return await search_tools.advanced_search(query, limit, sort_by, sort_order)
+
+    @mcp.tool()
+    async def filter_issues(
+        project: Annotated[str | None, Field(description='Project short name (e.g. ITSFT)')] = None,
+        author: Annotated[str | None, Field(description='Author login or "me" for current user')] = None,
+        assignee: Annotated[str | None, Field(description='Assignee login, "me", or "Unassigned"')] = None,
+        state: Annotated[str | None, Field(description='Issue state (use get_project to see available values)')] = None,
+        priority: Annotated[
+            str | None, Field(description='Priority level (use get_project to see available values)')
+        ] = None,
+        text: Annotated[str | None, Field(description='Search in summary and description')] = None,
+        created_after: Annotated[str | None, Field(description='Date YYYY-MM-DD')] = None,
+        created_before: Annotated[str | None, Field(description='Date YYYY-MM-DD')] = None,
+        updated_after: Annotated[str | None, Field(description='Date YYYY-MM-DD')] = None,
+        updated_before: Annotated[str | None, Field(description='Date YYYY-MM-DD')] = None,
+        limit: Annotated[int, Field(description='Max results')] = 10,
+    ) -> str:
+        """Filter issues by multiple criteria. Use when you need precise AND filtering. All parameters optional."""
+        return await search_tools.filter_issues(
+            project,
+            author,
+            assignee,
+            state,
+            priority,
+            text,
+            created_after,
+            created_before,
+            updated_after,
+            updated_before,
+            limit,
+        )
+
+    @mcp.tool()
+    async def search_with_custom_fields(
+        query: Annotated[str, Field(description='Base query (supports all YouTrack syntax)')],
+        custom_fields: Annotated[
+            str | list | dict,
+            Field(
+                description="""
+            Custom field filters: {'Type': 'Bug', 'Severity': 'Critical', 'Subsystem': 'Backend'}
+            Use 'empty' to find unset fields: {'Sprint': 'empty'}
+            """
+            ),
+        ],
+        limit: Annotated[int, Field(description='Max results')] = 10,
+    ) -> str:
+        """Search by custom fields. Use to find bugs in specific sprint or critical severity issues. Combines with base query."""
+        # Handle custom_fields as string, list or dict
+        if not isinstance(custom_fields, str):
+            custom_fields = json.dumps(custom_fields)
+        return await search_tools.search_with_custom_fields(query, custom_fields, limit)
