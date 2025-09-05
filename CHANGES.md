@@ -1,5 +1,16 @@
 # YouTrack MCP Server - Changes
 
+## Version 0.4.6 - 2025-01-06
+
+### 🐛 Bug Fixes
+- **Fixed execute_command API error** - Changed incorrect `json_data` parameter to `data` in execute_command
+  - Was causing "AsyncClient.request() got an unexpected keyword argument 'json_data'" error
+  - Commands like "State Closed Resolution Fixed" now work correctly
+
+### 📦 Dependencies
+- **Removed redundant mcp dependency** - Already included via FastMCP
+- **Documented why Docker builds install many packages** - FastMCP depends on mcp which brings uvicorn, starlette, rich, pyperclip etc.
+
 ## Version 0.4.5 - 2025-01-06
 
 ### 🎯 Major Changes
