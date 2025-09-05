@@ -1,6 +1,6 @@
 # YouTrack MCP Server - Changes
 
-## Version 0.4.3 - 2025-01-06
+## Version 0.4.5 - 2025-01-06
 
 ### 🎯 Major Changes
 
