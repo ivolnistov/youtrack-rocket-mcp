@@ -78,7 +78,7 @@ jobs:
     
     - name: Check distribution
       run: |
-        uv pip install twine
+        uv pip install --system twine
         twine check dist/*
         ls -lah dist/
     
