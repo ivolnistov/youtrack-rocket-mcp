@@ -13,22 +13,21 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
 fi
 
 # Check if required environment variables are set
-if [ -z "$YOUTRACK_URL" ]; then
-    echo "❌ Error: YOUTRACK_URL is not set"
-    echo "Please create a .env file with:"
-    echo "  YOUTRACK_URL=https://your-instance.youtrack.cloud"
-    echo "  YOUTRACK_API_TOKEN=your-api-token"
-    exit 1
-fi
-
 if [ -z "$YOUTRACK_API_TOKEN" ]; then
     echo "❌ Error: YOUTRACK_API_TOKEN is not set"
-    echo "Please add to .env file:"
-    echo "  YOUTRACK_API_TOKEN=your-api-token"
+    echo "Please create a .env file with:"
+    echo "  YOUTRACK_API_TOKEN=perm:username.workspace.xxxxx  # For YouTrack Cloud"
+    echo "  # or"
+    echo "  YOUTRACK_URL=https://youtrack.example.com  # For self-hosted"
+    echo "  YOUTRACK_API_TOKEN=perm:xxxxx"
     exit 1
 fi
 
-echo "✅ Using YouTrack instance: $YOUTRACK_URL"
+if [ -n "$YOUTRACK_URL" ]; then
+    echo "✅ Using self-hosted YouTrack: $YOUTRACK_URL"
+else
+    echo "✅ Using YouTrack Cloud (workspace from token)"
+fi
 echo ""
 
 # Change to script directory and run the MCP Inspector with the FastMCP server using uv

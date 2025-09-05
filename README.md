@@ -43,24 +43,43 @@ Model Context Protocol (MCP) is an open standard that enables AI models to inter
 ## Documentation
 
 - 📖 [Full Documentation](./docs/README.md)
+- ⚙️ [Configuration Guide](./docs/CONFIGURATION.md)
 - 🏗️ [Architecture](./docs/ARCHITECTURE.md)
 - 🚀 [Development Guide](./docs/DEVELOPMENT.md)
 
-## Quick Start with Docker
+## Quick Start
+
+### 🚀 Minimal Configuration Required!
+
+**YouTrack Cloud** - Just one environment variable:
+```bash
+export YOUTRACK_API_TOKEN="perm:username.workspace.xxxxx"
+uvx youtrack-rocket-mcp  # That's it!
+```
+
+**Self-hosted YouTrack** - Two environment variables:
+```bash
+export YOUTRACK_URL="https://youtrack.example.com"
+export YOUTRACK_API_TOKEN="perm:xxxxx"
+uvx youtrack-rocket-mcp
+```
+
+The server automatically detects your setup - no need to specify cloud vs self-hosted!
+
+See [Configuration Guide](./docs/CONFIGURATION.md) for advanced options.
+
+### Quick Start with Docker
 
 ```bash
 # Run with Docker (for YouTrack Cloud instances)
 docker run -i --rm \
-     -e YOUTRACK_URL=https://your-instance.youtrack.cloud \
-     -e YOUTRACK_API_TOKEN=perm:your-api-token \
-     -e YOUTRACK_CLOUD=true \
+     -e YOUTRACK_API_TOKEN=perm:username.workspace.xxxxx \
      ivolnistov/youtrack-rocket-mcp:latest
 
 # Or for self-hosted YouTrack instances
 docker run -i --rm \
-     -e YOUTRACK_URL=https://your-instance.youtrack.cloud \
-     -e YOUTRACK_API_TOKEN=your-api-token \
-     -e YOUTRACK_CLOUD=false \
+     -e YOUTRACK_URL=https://youtrack.example.com \
+     -e YOUTRACK_API_TOKEN=perm:xxxxx \
      ivolnistov/youtrack-rocket-mcp:latest
 ```
 
@@ -73,9 +92,7 @@ For Cursor IDE, add to `.cursor/mcp.json`:
             "type": "stdio",
             "command": "docker",
             "args": ["run", "-i", "--rm",
-            "-e", "YOUTRACK_URL=https://your-instance.youtrack.cloud",
-            "-e", "YOUTRACK_API_TOKEN=perm:your-api-token",
-            "-e", "YOUTRACK_CLOUD=true",
+            "-e", "YOUTRACK_API_TOKEN=perm:username.workspace.xxxxx",
             "ivolnistov/youtrack-rocket-mcp:latest"
             ]
         }
@@ -85,7 +102,7 @@ For Cursor IDE, add to `.cursor/mcp.json`:
 
 For Claude Desktop, set as MCP server:
 ```
-docker run -i --rm -e YOUTRACK_API_TOKEN=perm:your-api-token -e YOUTRACK_CLOUD=true ivolnistov/youtrack-rocket-mcp:latest
+docker run -i --rm -e YOUTRACK_API_TOKEN=perm:username.workspace.xxxxx ivolnistov/youtrack-rocket-mcp:latest
 ```
 
 ## Installation & Usage
@@ -95,13 +112,14 @@ docker run -i --rm -e YOUTRACK_API_TOKEN=perm:your-api-token -e YOUTRACK_CLOUD=t
 Run it directly without installation using `uvx`:
 
 ```bash
-# Run directly from PyPI
-export YOUTRACK_URL="https://your-instance.youtrack.cloud"
-export YOUTRACK_API_TOKEN="perm:your-api-token"
+# Run directly from PyPI (YouTrack Cloud)
+export YOUTRACK_API_TOKEN="perm:username.workspace.xxxxx"
 uvx youtrack-rocket-mcp
 
-# Or with specific version
-uvx youtrack-rocket-mcp@latest
+# Or for self-hosted YouTrack
+export YOUTRACK_URL="https://youtrack.example.com"
+export YOUTRACK_API_TOKEN="perm:xxxxx"
+uvx youtrack-rocket-mcp
 
 # Install persistently with uv tool
 uv tool install youtrack-rocket-mcp
@@ -227,9 +245,7 @@ Create a `.cursor/mcp.json` file in your project:
             "command": "uvx",
             "args": ["youtrack-rocket-mcp"],
             "env": {
-                "YOUTRACK_URL": "https://your-instance.youtrack.cloud",
-                "YOUTRACK_API_TOKEN": "perm:your-api-token",
-                "YOUTRACK_CLOUD": "true"
+                "YOUTRACK_API_TOKEN": "perm:username.workspace.xxxxx"
             }
         }
     }
@@ -245,9 +261,7 @@ Create a `.cursor/mcp.json` file in your project:
             "type": "stdio",
             "command": "docker",
             "args": ["run", "-i", "--rm",
-            "-e", "YOUTRACK_API_TOKEN=perm:your-api-token",
-            "-e", "YOUTRACK_URL=https://your-instance.youtrack.cloud",
-            "-e", "YOUTRACK_CLOUD=true",
+            "-e", "YOUTRACK_API_TOKEN=perm:username.workspace.xxxxx",
             "ivolnistov/youtrack-rocket-mcp:latest"
             ]
         }
@@ -279,9 +293,7 @@ To use with Claude Desktop:
             "command": "uvx",
             "args": ["youtrack-rocket-mcp"],
             "env": {
-                "YOUTRACK_URL": "https://your-instance.youtrack.cloud",
-                "YOUTRACK_API_TOKEN": "perm:your-api-token",
-                "YOUTRACK_CLOUD": "true"
+                "YOUTRACK_API_TOKEN": "perm:username.workspace.xxxxx"
             }
         }
     }
@@ -297,9 +309,7 @@ To use with Claude Desktop:
             "type": "stdio",
             "command": "docker",
             "args": ["run", "-i", "--rm",
-            "-e", "YOUTRACK_API_TOKEN=perm:your-api-token",
-            "-e", "YOUTRACK_URL=https://your-instance.youtrack.cloud",
-            "-e", "YOUTRACK_CLOUD=true",
+            "-e", "YOUTRACK_API_TOKEN=perm:username.workspace.xxxxx",
             "ivolnistov/youtrack-rocket-mcp:latest"
             ]
         }
@@ -320,9 +330,7 @@ claude mcp remove youtrack-rocket-mcp
 
 # Add new server with uvx
 claude mcp add youtrack-rocket-mcp \
-  --env YOUTRACK_URL=https://your-instance.youtrack.cloud \
-  --env YOUTRACK_API_TOKEN=perm:your-api-token \
-  --env YOUTRACK_CLOUD=true \
+  --env YOUTRACK_API_TOKEN=perm:username.workspace.xxxxx \
   --scope user \
   -- uvx youtrack-rocket-mcp
 ```
@@ -374,9 +382,7 @@ To use the YouTrack MCP server with VS Code:
          "type": "stdio",
          "command": "docker",
          "args": ["run", "-i", "--rm",
-           "-e", "YOUTRACK_API_TOKEN=perm:your-api-token",
-           "-e", "YOUTRACK_URL=https://your-instance.youtrack.cloud",
-           "-e", "YOUTRACK_CLOUD=true",
+           "-e", "YOUTRACK_API_TOKEN=perm:username.workspace.xxxxx",
            "youtrack-rocket-mcp:latest"
          ]
        }
@@ -649,11 +655,10 @@ The server can be configured via environment variables:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `YOUTRACK_URL` | YouTrack instance URL | (required) |
-| `YOUTRACK_API_TOKEN` | YouTrack permanent API token | (required) |
+| `YOUTRACK_API_TOKEN` | YouTrack API token (required) | - |
+| `YOUTRACK_URL` | YouTrack instance URL (for self-hosted) | - |
 | `YOUTRACK_VERIFY_SSL` | Verify SSL certificates | `true` |
 | `MCP_SERVER_NAME` | Name of the MCP server | `youtrack-rocket-mcp` |
-| `MCP_SERVER_DESCRIPTION` | Description of the MCP server | `YouTrack MCP Server` |
 | `MCP_DEBUG` | Enable debug logging | `false` |
 
 ### SSL Certificate Verification

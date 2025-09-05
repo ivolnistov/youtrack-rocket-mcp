@@ -7,7 +7,6 @@ services:
     environment:
       - YOUTRACK_URL=${YOUTRACK_URL}
       - YOUTRACK_API_TOKEN=${YOUTRACK_API_TOKEN}
-      - YOUTRACK_CLOUD=${YOUTRACK_CLOUD:-false}
       - YOUTRACK_VERIFY_SSL=${YOUTRACK_VERIFY_SSL:-true}
       - MCP_DEBUG=${MCP_DEBUG:-false}
     stdin_open: true

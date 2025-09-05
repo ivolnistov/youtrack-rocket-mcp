@@ -36,17 +36,34 @@ class Config:
     YOUTRACK_API_TOKEN: str = os.getenv('YOUTRACK_API_TOKEN', '')
     VERIFY_SSL: bool = os.getenv('YOUTRACK_VERIFY_SSL', 'true').lower() in ('true', '1', 'yes')
 
-    # Cloud instance configuration
-    YOUTRACK_CLOUD: bool = os.getenv('YOUTRACK_CLOUD', 'false').lower() in ('true', '1', 'yes')
-
     # API client configuration
     MAX_RETRIES: int = int(os.getenv('YOUTRACK_MAX_RETRIES', '3'))
     RETRY_DELAY: float = float(os.getenv('YOUTRACK_RETRY_DELAY', '1.0'))
 
     # MCP Server configuration
     MCP_SERVER_NAME: str = os.getenv('MCP_SERVER_NAME', 'youtrack-rocket-mcp')
-    MCP_SERVER_DESCRIPTION: str = os.getenv('MCP_SERVER_DESCRIPTION', '🚀 YouTrack Rocket MCP Server')
     MCP_DEBUG: bool = os.getenv('MCP_DEBUG', 'false').lower() in ('true', '1', 'yes')
+
+    # Instructions for AI assistants on how to use this server
+    MCP_SERVER_INSTRUCTIONS: str = os.getenv(
+        'MCP_SERVER_INSTRUCTIONS',
+        """
+YouTrack MCP Server - Issue tracking integration for AI assistants.
+
+Key capabilities:
+- Search issues using YouTrack query language
+- Create issues with custom fields (use get_project first to see required fields)
+- Add comments and execute batch commands on issues
+- Get project configurations and field values
+
+Best practices:
+1. Always use get_project() before creating issues to understand required fields
+2. Use search_issues() for quick searches (returns only ID and summary)
+3. Use search_issues_detailed() when you need full issue information
+4. Use execute_command() for batch operations like assigning or changing state
+5. Check get_search_syntax_guide() for query syntax help
+    """.strip(),
+    )
 
     @classmethod
     def from_dict(cls, config_dict: dict[str, str | int | float | bool]) -> None:
@@ -72,21 +89,30 @@ class Config:
         # API token is always required
         if not cls.YOUTRACK_API_TOKEN:
             raise ValueError(
-                'YouTrack API token is required. '
-                'Provide it using YOUTRACK_API_TOKEN environment variable or in configuration.'
-            )
-
-        # URL is only required for self-hosted instances (Cloud instances can use API token only)
-        if not cls.YOUTRACK_CLOUD and not cls.YOUTRACK_URL:
-            raise ValueError(
-                'YouTrack URL is required for self-hosted instances. '
-                'Provide it using YOUTRACK_URL environment variable '
-                'or set YOUTRACK_CLOUD=true for cloud instances.'
+                '\n🔧 YouTrack Configuration Required\n'
+                '\n'
+                'Please set your YouTrack API token:\n'
+                '\n'
+                '1. For YouTrack Cloud:\n'
+                '   export YOUTRACK_API_TOKEN="perm:username.workspace.xxxxx"\n'
+                '\n'
+                '2. For self-hosted YouTrack:\n'
+                '   export YOUTRACK_URL="https://youtrack.company.com"\n'
+                '   export YOUTRACK_API_TOKEN="perm:xxxxx"\n'
+                '\n'
+                'Get your token from YouTrack: Profile → Account Security → New token\n'
             )
 
         # If URL is provided, ensure it doesn't end with a trailing slash
         if cls.YOUTRACK_URL:
             cls.YOUTRACK_URL = cls.YOUTRACK_URL.rstrip('/')
+
+        # Try to get base URL to ensure configuration is valid
+        try:
+            cls.get_base_url()
+        except ValueError as e:
+            # Re-raise with cleaner error message
+            raise ValueError(str(e)) from None
 
     @classmethod
     def get_ssl_context(cls) -> ssl.SSLContext | None:
@@ -111,61 +137,79 @@ class Config:
         Check if the configured YouTrack instance is a cloud instance.
 
         Returns:
-            True if the instance is a cloud instance, False otherwise
+            True if cloud instance, False if self-hosted
         """
-        return cls.YOUTRACK_CLOUD or not cls.YOUTRACK_URL
+        # If URL is explicitly provided, it's self-hosted
+        # No URL = cloud by default
+        return not cls.YOUTRACK_URL
 
     @classmethod
     def get_base_url(cls) -> str:
         """
         Get the base URL for the YouTrack instance API.
 
-        For self-hosted instances, this is the configured URL.
-        For cloud instances, this is the workspace-specific youtrack.cloud API URL,
-        which is extracted from the API token or used directly if provided.
+        Priority:
+        1. If YOUTRACK_URL is set - use it (self-hosted mode)
+        2. If only token is set - extract workspace from token (cloud mode)
+        3. If token doesn't contain workspace - use YOUTRACK_WORKSPACE env var
 
         Returns:
             Base URL for the YouTrack API
         """
-        # If URL is explicitly provided, use it regardless of cloud setting
+        # Priority 1: Explicit URL (self-hosted)
         if cls.YOUTRACK_URL:
-            return f'{cls.YOUTRACK_URL}/api'
+            # Ensure URL has /api suffix
+            url = cls.YOUTRACK_URL.rstrip('/')
+            if not url.endswith('/api'):
+                url += '/api'
+            return url
 
-        # For cloud instances without explicit URL, try to extract from token
-        if cls.is_cloud_instance():
-            # Handle both token formats: perm: and perm-
-            if '.' in cls.YOUTRACK_API_TOKEN and (
-                cls.YOUTRACK_API_TOKEN.startswith('perm:') or cls.YOUTRACK_API_TOKEN.startswith('perm-')
-            ):
+        # Priority 2: Extract from token (cloud)
+        if cls.YOUTRACK_API_TOKEN:
+            # Token format: perm:username.workspace.12345... (standard cloud format)
+            if cls.YOUTRACK_API_TOKEN.startswith('perm:'):
                 token_parts = cls.YOUTRACK_API_TOKEN.split('.')
+                if len(token_parts) >= 3:
+                    # Extract workspace from token (second part after perm:username)
+                    workspace = token_parts[1]
+                    return f'https://{workspace}.youtrack.cloud/api'
 
-                # Extract workspace from specific token formats
-                if len(token_parts) > 1:
-                    # For format: perm:username.workspace.12345...
-                    if cls.YOUTRACK_API_TOKEN.startswith('perm:'):
-                        workspace = token_parts[1]
-                        return f'https://{workspace}.youtrack.cloud/api'
+            # Token format: perm-base64.base64.hash (needs YOUTRACK_WORKSPACE)
+            if cls.YOUTRACK_API_TOKEN.startswith('perm-'):
+                workspace_env = os.getenv('YOUTRACK_WORKSPACE')
+                if workspace_env:
+                    return f'https://{workspace_env}.youtrack.cloud/api'
 
-                    # For format: perm-base64.base64.hash
-                    if cls.YOUTRACK_API_TOKEN.startswith('perm-'):
-                        # If we have a fixed workspace name from environment, use it
-                        workspace_env: str | None = os.getenv('YOUTRACK_WORKSPACE')
-                        if workspace_env is not None:
-                            return f'https://{workspace_env}.youtrack.cloud/api'
+                # Error: perm- token needs workspace
+                raise ValueError(
+                    '\n🔧 YouTrack Configuration Required\n'
+                    '\n'
+                    'Your token format (perm-...) requires workspace specification.\n'
+                    '\n'
+                    'Please set YOUTRACK_WORKSPACE:\n'
+                    '   export YOUTRACK_WORKSPACE="yourworkspace"\n'
+                    '\n'
+                    'Or provide full URL:\n'
+                    '   export YOUTRACK_URL="https://yourworkspace.youtrack.cloud"\n'
+                )
 
-                        if os.getenv('YOUTRACK_URL'):
-                            return f'{os.getenv("YOUTRACK_URL")}/api'
-
-            # Fallback error with better guidance
-            raise ValueError(
-                'Could not determine YouTrack Cloud URL. Please either:\n'
-                '1. Set YOUTRACK_URL to your YouTrack Cloud URL (e.g., https://yourworkspace.youtrack.cloud)\n'
-                '2. Set YOUTRACK_WORKSPACE to your workspace name\n'
-                '3. Use a token in the format perm:username.workspace.12345...'
-            )
-
-        # Should never reach here as is_cloud_instance() returns True if URL is missing
-        raise ValueError('YouTrack URL is required. Please set YOUTRACK_URL environment variable.')
+        # No token provided
+        raise ValueError(
+            '\n🔧 YouTrack Configuration Required\n'
+            '\n'
+            'Please set your YouTrack API token:\n'
+            '\n'
+            '1. For YouTrack Cloud (recommended):\n'
+            '   export YOUTRACK_API_TOKEN="perm:username.workspace.xxxxx"\n'
+            '\n'
+            '2. For self-hosted YouTrack:\n'
+            '   export YOUTRACK_URL="https://youtrack.company.com"\n'
+            '   export YOUTRACK_API_TOKEN="perm:xxxxx"\n'
+            '\n'
+            'Get your token from YouTrack: Profile → Account Security → New token\n'
+            '\n'
+            'See README.md for detailed setup instructions.'
+        )
 
 
 # Create a global config instance

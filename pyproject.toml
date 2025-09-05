@@ -139,6 +139,10 @@ known-first-party = ["youtrack_rocket_mcp"]
     "E501",    # Long lines are OK in tool documentation
     "PLR0915", # filter_issues is complex but well-structured
 ]
+# Server module needs print for error messages to stderr
+"src/youtrack_rocket_mcp/server.py" = [
+    "T201",    # print statements are needed for error output to stderr
+]
 
 [tool.ruff.format]
 quote-style = "single"

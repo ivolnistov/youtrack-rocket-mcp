@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     pass
 
 import httpx
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from youtrack_rocket_mcp.config import config
 
@@ -57,13 +57,12 @@ class ServerError(YouTrackAPIError):
 class YouTrackModel(BaseModel):
     """Base model for YouTrack API resources."""
 
+    model_config = ConfigDict(
+        extra='allow',  # Allow extra fields in the model
+        populate_by_name=True,  # Allow population by field name
+    )
+
     id: str
-
-    class Config:
-        """Pydantic configuration for YouTrack models."""
-
-        extra = 'allow'  # Allow extra fields in the model
-        populate_by_name = True  # Allow population by field name
 
 
 class YouTrackClient:

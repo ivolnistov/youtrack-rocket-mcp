@@ -105,16 +105,19 @@ uv add --group dev <package>
 Set up your environment variables:
 
 ```bash
-# Create .env file
+# Create .env file for YouTrack Cloud
 cat > .env << EOF
-YOUTRACK_URL=https://your-instance.youtrack.cloud
-YOUTRACK_API_TOKEN=perm:your-api-token
-YOUTRACK_CLOUD=true
+YOUTRACK_API_TOKEN=perm:username.workspace.xxxxx
+EOF
+
+# Or for self-hosted YouTrack
+cat > .env << EOF
+YOUTRACK_URL=https://youtrack.example.com
+YOUTRACK_API_TOKEN=perm:xxxxx
 EOF
 
 # Or export directly
-export YOUTRACK_URL="https://your-instance.youtrack.cloud"
-export YOUTRACK_API_TOKEN="perm:your-api-token"
+export YOUTRACK_API_TOKEN="perm:username.workspace.xxxxx"
 ```
 
 ## FastMCP Architecture

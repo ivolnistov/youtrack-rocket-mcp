@@ -1,8 +1,80 @@
 # YouTrack MCP Server - Changes
 
-## Date: 2025-01-06
+## Version 0.4.3 - 2025-01-06
 
-### New Features:
+### 🎯 Major Changes
+
+#### Simplified Configuration
+- **Removed `YOUTRACK_CLOUD` variable** - Server now automatically detects cloud vs self-hosted instances
+- **Removed `MCP_SERVER_DESCRIPTION`** - Consolidated into `MCP_SERVER_INSTRUCTIONS` for FastMCP
+- **Minimal setup required** - Only API token needed for YouTrack Cloud instances
+- **Smart detection** - Workspace automatically extracted from token format `perm:username.workspace.xxxxx`
+
+#### Improved Error Handling
+- **Configuration validation** - Server validates settings at startup with clear error messages
+- **Graceful shutdown** - Fixed Ctrl-C handling without traceback or thread errors
+- **FastMCP lifespan management** - Added async context manager for proper startup/shutdown
+- **Smart interrupt handling**:
+  - First Ctrl-C: Normal graceful shutdown with sys.exit(0)
+  - Multiple Ctrl-C: Force quit with os._exit(0) without errors
+- **Async task cleanup** - Cancels all pending async tasks on shutdown
+- **User-friendly messages** - Clear instructions when configuration is missing or invalid
+
+### 📝 Configuration Changes
+
+#### Before (Complex)
+```env
+YOUTRACK_URL=https://workspace.youtrack.cloud
+YOUTRACK_API_TOKEN=perm:username.workspace.xxxxx
+YOUTRACK_CLOUD=true
+MCP_SERVER_DESCRIPTION=My Server
+```
+
+#### After (Simple)
+```env
+# For Cloud - just token!
+YOUTRACK_API_TOKEN=perm:username.workspace.xxxxx
+
+# For self-hosted - token + URL
+YOUTRACK_URL=https://youtrack.example.com
+YOUTRACK_API_TOKEN=perm:xxxxx
+```
+
+### 🔧 Technical Details
+
+1. **Configuration (`src/youtrack_rocket_mcp/config.py`)**
+   - Removed `YOUTRACK_CLOUD` variable
+   - Added `MCP_SERVER_INSTRUCTIONS` with comprehensive AI guidance
+   - Improved `validate()` method with actionable error messages
+   - Smart `get_base_url()` with automatic workspace detection
+
+2. **Server (`src/youtrack_rocket_mcp/server.py`)**
+   - Added configuration validation on startup
+   - Improved KeyboardInterrupt handling with clean exit
+   - Added FastMCP lifespan context manager for proper async cleanup
+   - Better error reporting without stack traces
+   - Single Ctrl-C now properly terminates the server
+
+3. **Documentation**
+   - Created comprehensive `docs/CONFIGURATION.md`
+   - Updated all README files and examples
+   - Removed obsolete configuration references
+   - Added troubleshooting guides
+
+### 🐛 Bug Fixes
+- Fixed async task cleanup on shutdown with proper cancellation
+- Fixed traceback display on Ctrl-C - now exits cleanly
+- Fixed single Ctrl-C termination - server now shuts down properly on first interrupt
+- Fixed validation for tokens without workspace info
+
+### 📚 Documentation Updates
+- `docs/CONFIGURATION.md` - New comprehensive configuration guide
+- `README.md` - Simplified setup instructions
+- `.env.example` - Updated with new configuration format
+- `Dockerfile` - Removed obsolete environment variables
+- All examples updated to use new configuration
+
+### Updated Features:
 
 1. **GitHub Release packages and Container Registry support**
    - Added GitHub Packages (ghcr.io) deployment alongside Docker Hub

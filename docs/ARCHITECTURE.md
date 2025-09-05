@@ -71,9 +71,8 @@ src/
 ## Configuration
 
 Environment variables or `.env` file:
-- `YOUTRACK_URL`: YouTrack instance URL
-- `YOUTRACK_API_TOKEN`: API authentication token
-- `YOUTRACK_CLOUD`: Boolean for cloud vs self-hosted
+- `YOUTRACK_API_TOKEN`: API authentication token (required)
+- `YOUTRACK_URL`: YouTrack instance URL (optional, for self-hosted only)
 - `YOUTRACK_VERIFY_SSL`: SSL verification (default: true)
 
 ## Tool Categories
