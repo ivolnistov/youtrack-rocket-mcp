@@ -371,6 +371,29 @@ class IssueTools:
             logger.exception(f'Error creating issue in project {project}')
             return json.dumps({'error': str(e), 'status': 'error'})
 
+    async def get_issue_comments(self, issue_id: str) -> str:
+        """
+        Get all comments for an issue.
+
+        FORMAT: get_issue_comments(issue_id="DEMO-123")
+
+        Args:
+            issue_id: The issue ID or readable ID (e.g., PROJECT-123)
+
+        Returns:
+            JSON string with the list of comments
+        """
+        try:
+            comments = await self.issues_api.get_issue_comments(issue_id)
+
+            # Format the response with metadata
+            result = {'issue_id': issue_id, 'comments_count': len(comments), 'comments': comments}
+
+            return json.dumps(result, indent=2)
+        except Exception as e:
+            logger.exception(f'Error getting comments for issue {issue_id}')
+            return json.dumps({'error': str(e), 'issue_id': issue_id})
+
     async def add_comment(self, issue_id: str, text: str) -> str:
         """
         Add a comment to an issue.
@@ -542,6 +565,13 @@ def register_issue_tools(mcp: FastMCP) -> None:
             parsed_custom_fields = custom_fields
 
         return await issue_tools.create_issue(project, summary, description, parsed_custom_fields)
+
+    @mcp.tool()
+    async def get_issue_comments(
+        issue_id: Annotated[str, Field(description='Issue ID (e.g., ITSFT-123 or 2-12345)')],
+    ) -> str:
+        """Retrieve all comments for an issue. Use to read discussion history, updates, and clarifications. Returns JSON with comment details."""
+        return await issue_tools.get_issue_comments(issue_id)
 
     @mcp.tool()
     async def add_comment(

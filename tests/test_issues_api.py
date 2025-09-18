@@ -221,6 +221,86 @@ async def test_create_issue_handles_api_error(issues_client, mock_client):
 
 
 @pytest.mark.asyncio
+async def test_get_issue_comments(issues_client, mock_client):
+    """Test getting comments for an issue."""
+    mock_response = [
+        {
+            'id': 'comment-1',
+            'created': 1234567890,
+            'text': 'First comment',
+            'author': {'id': 'user-1', 'login': 'john.doe', 'name': 'John Doe'},
+        },
+        {
+            'id': 'comment-2',
+            'created': 1234567900,
+            'text': 'Second comment',
+            'author': {'id': 'user-2', 'login': 'jane.doe', 'name': 'Jane Doe'},
+        },
+    ]
+    mock_client.get.return_value = mock_response
+
+    result = await issues_client.get_issue_comments('TEST-1')
+
+    # Check API was called correctly
+    expected_fields = 'id,created,text,author(id,login,name)'
+    mock_client.get.assert_called_once_with(f'issues/TEST-1/comments?fields={expected_fields}')
+
+    # Check result
+    assert result == mock_response
+    assert len(result) == 2
+    assert result[0]['id'] == 'comment-1'
+    assert result[0]['text'] == 'First comment'
+    assert result[0]['author']['login'] == 'john.doe'
+
+
+@pytest.mark.asyncio
+async def test_get_issue_comments_nested_response(issues_client, mock_client):
+    """Test getting comments when API returns nested structure."""
+    mock_comments = [{'id': 'comment-1', 'created': 1234567890, 'text': 'Test comment'}]
+    mock_response = {'comments': mock_comments}
+    mock_client.get.return_value = mock_response
+
+    result = await issues_client.get_issue_comments('TEST-1')
+
+    # Check result extracts comments from nested structure
+    assert result == mock_comments
+
+
+@pytest.mark.asyncio
+async def test_get_issue_comments_fallback_to_issue_data(issues_client, mock_client):
+    """Test fallback to getting comments from issue data."""
+    mock_comments = [{'id': 'comment-1', 'created': 1234567890, 'text': 'Test comment'}]
+
+    # First call returns invalid data, second call (fallback) returns issue with comments
+    mock_client.get.side_effect = [
+        'invalid_response',  # First call fails
+        {'comments': mock_comments},  # Fallback call succeeds
+    ]
+
+    result = await issues_client.get_issue_comments('TEST-1')
+
+    # Check both API calls were made
+    assert mock_client.get.call_count == 2
+    expected_fields = 'id,created,text,author(id,login,name)'
+    mock_client.get.assert_any_call(f'issues/TEST-1/comments?fields={expected_fields}')
+    mock_client.get.assert_any_call(f'issues/TEST-1?fields=comments({expected_fields})')
+
+    # Check result
+    assert result == mock_comments
+
+
+@pytest.mark.asyncio
+async def test_get_issue_comments_empty_response(issues_client, mock_client):
+    """Test getting comments when no comments exist."""
+    mock_client.get.side_effect = ['invalid_response', 'invalid_response']
+
+    result = await issues_client.get_issue_comments('TEST-1')
+
+    # Should return empty list when no valid response
+    assert result == []
+
+
+@pytest.mark.asyncio
 async def test_add_comment(issues_client, mock_client):
     """Test adding a comment to an issue."""
     mock_response = {'id': 'comment-1', 'text': 'Test comment'}
